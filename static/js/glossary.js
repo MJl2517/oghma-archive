@@ -156,6 +156,11 @@ const ruleSourceRenameModal = document.querySelector("[data-rule-source-rename-m
 const ruleTagDeleteModal = document.querySelector("[data-rule-tag-delete-modal]");
 const ruleSourceDeleteModal = document.querySelector("[data-rule-source-delete-modal]");
 const ruleDeleteModal = document.querySelector("[data-rule-delete-modal]");
+const glossaryCatalogModal = document.querySelector("[data-glossary-catalog-modal]");
+const glossaryCatalogList = document.querySelector("[data-glossary-catalog-list]");
+const glossaryCatalogStatus = document.querySelector("[data-glossary-catalog-status]");
+const glossaryCatalogInstallButton = document.querySelector("[data-install-glossary-packs]");
+const glossaryCatalogReplaceInput = document.querySelector("[data-glossary-catalog-replace]");
 const scrollTopZone = document.querySelector("[data-scroll-top-zone]");
 const ruleToast = document.querySelector("[data-rule-toast]");
 const serviceRuleTag = rulesGroups?.dataset.serviceRuleTag || "Без категории";
@@ -172,6 +177,7 @@ let pendingRuleTagRenameForm = null;
 let pendingRuleSourceRenameForm = null;
 let activeRuleDeleteHold = null;
 let ruleTaxonomyActiveTab = "categories";
+let glossaryCatalogLoaded = false;
 
 function showRuleToast(message) {
   if (!ruleToast) return;
@@ -212,6 +218,7 @@ function hasOpenRuleOverlay() {
     || ruleTagDeleteModal?.classList.contains("is-open")
     || ruleSourceDeleteModal?.classList.contains("is-open")
     || ruleDeleteModal?.classList.contains("is-open")
+    || glossaryCatalogModal?.classList.contains("is-open")
   );
 }
 
@@ -1401,7 +1408,205 @@ function closeRuleSearch() {
   syncRuleBodyModalState();
 }
 
+function glossaryCatalogErrorMessage(payload, fallback) {
+  return payload?.error?.message || payload?.error || fallback;
+}
+
+function setGlossaryCatalogStatus(message, tone = "") {
+  if (!glossaryCatalogStatus) return;
+  glossaryCatalogStatus.textContent = message;
+  glossaryCatalogStatus.dataset.tone = tone;
+  glossaryCatalogStatus.hidden = !message;
+}
+
+function updateGlossaryCatalogSelection() {
+  if (!glossaryCatalogInstallButton || glossaryCatalogInstallButton.dataset.busy === "true") return;
+  const selectedCount = glossaryCatalogList?.querySelectorAll("[data-glossary-pack]:checked").length || 0;
+  const replaceExisting = glossaryCatalogReplaceInput?.checked === true;
+  glossaryCatalogInstallButton.disabled = selectedCount === 0;
+  glossaryCatalogInstallButton.textContent = selectedCount
+    ? `${replaceExisting ? "Заменить данными" : "Установить выбранные"} (${selectedCount})`
+    : "Установить выбранные";
+}
+
+function createGlossaryCatalogPack(pack) {
+  const label = document.createElement("label");
+  label.className = "glossary-catalog-pack";
+
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.value = pack.id || "";
+  checkbox.dataset.glossaryPack = "";
+  checkbox.setAttribute("aria-label", `Выбрать набор ${pack.title || "глоссария"}`);
+
+  const copy = document.createElement("span");
+  copy.className = "glossary-catalog-pack-copy";
+
+  const heading = document.createElement("span");
+  heading.className = "glossary-catalog-pack-heading";
+  const title = document.createElement("strong");
+  title.textContent = pack.title || "Глоссарий";
+  heading.append(title);
+
+  if (pack.installed || pack.update_available) {
+    const badge = document.createElement("small");
+    badge.className = "glossary-catalog-pack-badge";
+    badge.textContent = pack.update_available ? "Доступно обновление" : "Установлен";
+    heading.append(badge);
+  }
+
+  const description = document.createElement("span");
+  description.className = "glossary-catalog-pack-description";
+  description.textContent = pack.description || "Готовый набор правил для глоссария.";
+
+  const meta = document.createElement("small");
+  meta.className = "glossary-catalog-pack-meta";
+  const parts = [
+    `${Number(pack.rules_count || 0).toLocaleString("ru-RU")} правил`,
+    `версия ${pack.version || "—"}`,
+    String(pack.language || "ru").toUpperCase(),
+  ];
+  if (Array.isArray(pack.sources) && pack.sources.length) parts.push(pack.sources.join(" · "));
+  meta.textContent = parts.join(" · ");
+
+  copy.append(heading, description, meta);
+  label.append(checkbox, copy);
+  return label;
+}
+
+function renderGlossaryCatalog(payload) {
+  if (!glossaryCatalogList) return;
+  glossaryCatalogList.replaceChildren();
+  const packs = Array.isArray(payload?.packs) ? payload.packs : [];
+  packs.forEach((pack) => glossaryCatalogList.append(createGlossaryCatalogPack(pack)));
+
+  const source = document.querySelector("[data-glossary-catalog-source]");
+  if (source) {
+    source.textContent = payload?.source === "github"
+      ? "Свежий каталог из GitHub"
+      : "Встроенная копия каталога";
+  }
+  const repository = document.querySelector("[data-glossary-catalog-repository]");
+  if (repository && payload?.repository_url) {
+    repository.href = payload.repository_url;
+    repository.hidden = false;
+  }
+
+  if (packs.length) setGlossaryCatalogStatus("");
+  else setGlossaryCatalogStatus("В каталоге пока нет доступных наборов.");
+  updateGlossaryCatalogSelection();
+}
+
+async function loadGlossaryCatalog({ force = false } = {}) {
+  if (!glossaryCatalogList || (glossaryCatalogLoaded && !force)) return;
+  setGlossaryCatalogStatus("Загружаю каталог…");
+  glossaryCatalogList.setAttribute("aria-busy", "true");
+  if (glossaryCatalogInstallButton) glossaryCatalogInstallButton.disabled = true;
+  try {
+    const response = await fetch(`/rules/glossaries/catalog${force ? "?refresh=1" : ""}`, {
+      headers: { "Accept": "application/json", "X-Requested-With": "fetch" },
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) {
+      throw new Error(glossaryCatalogErrorMessage(payload, "Не удалось загрузить каталог глоссариев."));
+    }
+    renderGlossaryCatalog(payload);
+    glossaryCatalogLoaded = true;
+  } catch (error) {
+    glossaryCatalogList.replaceChildren();
+    setGlossaryCatalogStatus(error.message || "Не удалось загрузить каталог глоссариев.", "error");
+  } finally {
+    glossaryCatalogList.removeAttribute("aria-busy");
+  }
+}
+
+function openGlossaryCatalog() {
+  if (!glossaryCatalogModal) return;
+  closeRuleSearch();
+  glossaryCatalogModal.classList.add("is-open");
+  glossaryCatalogModal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("has-modal");
+  loadGlossaryCatalog();
+  window.setTimeout(() => glossaryCatalogModal.querySelector("[data-close-glossary-catalog]")?.focus(), 30);
+}
+
+function closeGlossaryCatalog() {
+  if (!glossaryCatalogModal || glossaryCatalogInstallButton?.dataset.busy === "true") return;
+  glossaryCatalogModal.classList.remove("is-open");
+  glossaryCatalogModal.setAttribute("aria-hidden", "true");
+  if (glossaryCatalogReplaceInput) glossaryCatalogReplaceInput.checked = false;
+  updateGlossaryCatalogSelection();
+  syncRuleBodyModalState();
+}
+
+async function installSelectedGlossaries() {
+  if (!glossaryCatalogInstallButton || !glossaryCatalogList) return;
+  const packs = [...glossaryCatalogList.querySelectorAll("[data-glossary-pack]:checked")]
+    .map((input) => input.value)
+    .filter(Boolean);
+  if (!packs.length) return;
+  const replaceExisting = glossaryCatalogReplaceInput?.checked === true;
+  if (
+    replaceExisting
+    && !window.confirm("Текущий глоссарий будет полностью удалён и заменён выбранными наборами. Продолжить?")
+  ) return;
+
+  glossaryCatalogInstallButton.dataset.busy = "true";
+  glossaryCatalogInstallButton.disabled = true;
+  glossaryCatalogInstallButton.textContent = "Устанавливаю…";
+  glossaryCatalogList.querySelectorAll("input").forEach((input) => { input.disabled = true; });
+  if (glossaryCatalogReplaceInput) glossaryCatalogReplaceInput.disabled = true;
+  setGlossaryCatalogStatus(
+    replaceExisting ? "Проверяю наборы и готовлю полную замену…" : "Проверяю и объединяю выбранные наборы…",
+  );
+  try {
+    const response = await fetch("/rules/glossaries/install", {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Requested-With": "fetch",
+      },
+      body: JSON.stringify({ packs, replace: replaceExisting }),
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) {
+      throw new Error(glossaryCatalogErrorMessage(payload, "Не удалось установить выбранные глоссарии."));
+    }
+    const successMessage = payload.replaced
+      ? `Готово: удалено прежних записей ${payload.removed || 0}, загружено ${payload.total || 0}. Обновляю страницу…`
+      : `Готово: добавлено ${payload.created || 0}, обновлено ${payload.updated || 0}. Обновляю страницу…`;
+    setGlossaryCatalogStatus(successMessage, "success");
+    glossaryCatalogInstallButton.textContent = "Установлено";
+    window.setTimeout(() => {
+      if (replaceExisting) window.location.href = "/rules";
+      else window.location.reload();
+    }, 900);
+  } catch (error) {
+    setGlossaryCatalogStatus(error.message || "Не удалось установить выбранные глоссарии.", "error");
+    glossaryCatalogList.querySelectorAll("input").forEach((input) => { input.disabled = false; });
+    if (glossaryCatalogReplaceInput) glossaryCatalogReplaceInput.disabled = false;
+    delete glossaryCatalogInstallButton.dataset.busy;
+    updateGlossaryCatalogSelection();
+  }
+}
+
 document.addEventListener("click", async (event) => {
+  if (event.target.closest("[data-open-glossary-catalog]")) {
+    openGlossaryCatalog();
+    return;
+  }
+
+  if (event.target.closest("[data-close-glossary-catalog]")) {
+    closeGlossaryCatalog();
+    return;
+  }
+
+  if (event.target.closest("[data-install-glossary-packs]")) {
+    await installSelectedGlossaries();
+    return;
+  }
+
   if (event.target.closest("[data-open-rule-search]")) {
     openRuleSearch();
     return;
@@ -1786,6 +1991,11 @@ document.addEventListener("input", (event) => {
 });
 
 document.addEventListener("change", (event) => {
+  if (event.target.closest("[data-glossary-pack], [data-glossary-catalog-replace]")) {
+    updateGlossaryCatalogSelection();
+    return;
+  }
+
   const importInput = event.target.closest("[data-rule-import-input]");
   if (importInput) {
     const form = importInput.closest("[data-rule-import-form]");
@@ -1808,6 +2018,11 @@ document.addEventListener("keydown", async (event) => {
   if (event.key === "Enter" && event.target.closest("[data-rule-source-rename-input]")) {
     event.preventDefault();
     await renameRuleSource().catch(() => showRuleToast("Не удалось переименовать источник"));
+    return;
+  }
+
+  if (event.key === "Escape" && glossaryCatalogModal?.classList.contains("is-open")) {
+    closeGlossaryCatalog();
     return;
   }
 

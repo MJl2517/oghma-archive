@@ -34,6 +34,7 @@ a = Analysis(
     binaries=[],
     datas=[
         (str(project_root / "templates"), "templates"),
+        (str(project_root / "materials"), "materials"),
         (str(project_root / "installer" / "launch-update.ps1"), "installer"),
         *static_datas,
     ],

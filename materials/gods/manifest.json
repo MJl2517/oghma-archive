@@ -1,0 +1,172 @@
+{
+  "schema": "ogma.gods.catalog.v1",
+  "packs": [
+    {
+      "id": "forgotten-realms",
+      "title": "Фаэрун",
+      "description": "Боги Фаэруна и связанные расовые пантеоны Забытых Королевств.",
+      "version": "2026.07.22",
+      "language": "ru",
+      "gods_count": 163,
+      "pantheons": [
+        "Фаэрунский пантеон",
+        "Эльфийский пантеон (Селдарин)",
+        "Дварфийский пантеон (Морндинсамман)",
+        "Пантеон гномов",
+        "Пантеон Дроу (Тёмные Селдарин)",
+        "Пантеон полуросликов",
+        "Пантеон орков",
+        "Пантеон гоблиноидов",
+        "Боги великанов",
+        "Пантеон драконов"
+      ],
+      "filename": "forgotten-realms.json",
+      "size": 667622,
+      "sha256": "d5592b89a5a2903409384d77f446aabffb36473f18de2af97d8e28b1c61ed139"
+    },
+    {
+      "id": "eberron",
+      "title": "Эберрон",
+      "description": "Владычествующий Сонм, Тёмная Шестёрка и другие силы Эберрона.",
+      "version": "2026.07.22",
+      "language": "ru",
+      "gods_count": 26,
+      "pantheons": [
+        "Верховные Владыки Эберрона (Владычествующий Сонм)",
+        "Тёмная Шестёрка Эберрона",
+        "Другие боги Эберона",
+        "Божества предвечных войн"
+      ],
+      "filename": "eberron.json",
+      "size": 53226,
+      "sha256": "8c138f90e019e46ca13d2232cc5af3490a7780e5e8871451a16b113ad503f0bf"
+    },
+    {
+      "id": "greyhawk",
+      "title": "Серый Ястреб",
+      "description": "Пантеон сеттинга Greyhawk для кампаний в мире Оэрт.",
+      "version": "2026.07.22",
+      "language": "ru",
+      "gods_count": 25,
+      "pantheons": [
+        "Пантеон Грейхока (Серый ястреб)"
+      ],
+      "filename": "greyhawk.json",
+      "size": 218664,
+      "sha256": "f6b257b1600d024aace1cdefaf56b84b1ff9a5cbde73a71bc7071c73b8dde1ab"
+    },
+    {
+      "id": "dragonlance",
+      "title": "Кринн",
+      "description": "Боги Кринна из сеттинга Dragonlance.",
+      "version": "2026.07.22",
+      "language": "ru",
+      "gods_count": 21,
+      "pantheons": [
+        "Пантеон Кринна (Сага о копье)"
+      ],
+      "filename": "dragonlance.json",
+      "size": 59654,
+      "sha256": "3e0c399bef45f8a16a4badb36fbd153f549eee39687341093316883df607bf6c"
+    },
+    {
+      "id": "theros",
+      "title": "Терос",
+      "description": "Божества мира Терос.",
+      "version": "2026.07.22",
+      "language": "ru",
+      "gods_count": 1,
+      "pantheons": [
+        "Терос"
+      ],
+      "filename": "theros.json",
+      "size": 1260,
+      "sha256": "a7b7f84d05eb6674ca7bb575c48d6e857c4593ffdc0368263d491d9a4439b0e8"
+    },
+    {
+      "id": "thylea",
+      "title": "Тилея",
+      "description": "Древние титаны Тилеи из сеттинга Odyssey of the Dragonlords.",
+      "version": "2026.07.22",
+      "language": "ru",
+      "gods_count": 4,
+      "pantheons": [
+        "Боги Тилеи (Древние титаны)"
+      ],
+      "filename": "thylea.json",
+      "size": 8032,
+      "sha256": "5a4b18d560d7a3d7752af0a1e75fd559c5388dcb31d06772400531f3767994fd"
+    },
+    {
+      "id": "egyptian",
+      "title": "Египетские боги",
+      "description": "Пантеон фараонов и божества древнеегипетской мифологии.",
+      "version": "2026.07.22",
+      "language": "ru",
+      "gods_count": 14,
+      "pantheons": [
+        "Пантеон фараонов (египетские боги)"
+      ],
+      "filename": "egyptian.json",
+      "size": 48859,
+      "sha256": "ab83c4e13c159b07a17ac6c66cac305b967c8d42a632490dbcf32971ffbb12fc"
+    },
+    {
+      "id": "greek",
+      "title": "Греческие боги",
+      "description": "Олимпийцы, титаны и другие божества греческой мифологии.",
+      "version": "2026.07.22",
+      "language": "ru",
+      "gods_count": 19,
+      "pantheons": [
+        "Греческие боги"
+      ],
+      "filename": "greek.json",
+      "size": 56890,
+      "sha256": "c117314498e35334c581790f96a938efcd492cd3d8bf8aa31cf4456c42e84a1e"
+    },
+    {
+      "id": "norse",
+      "title": "Скандинавские боги",
+      "description": "Асы, ваны и другие боги северной мифологии.",
+      "version": "2026.07.22",
+      "language": "ru",
+      "gods_count": 21,
+      "pantheons": [
+        "Асгардский пантеон (скандинавские боги)"
+      ],
+      "filename": "norse.json",
+      "size": 72157,
+      "sha256": "593ab88af230880c5015a8e9af295824cf8d4cd14143b2c9e8e0e65f77d2cfcb"
+    },
+    {
+      "id": "celtic",
+      "title": "Кельтские боги",
+      "description": "Божества и героические силы кельтской мифологии.",
+      "version": "2026.07.22",
+      "language": "ru",
+      "gods_count": 12,
+      "pantheons": [
+        "Кельтские боги"
+      ],
+      "filename": "celtic.json",
+      "size": 15314,
+      "sha256": "375569ab84108aabb8be2a821c0800093bab74fc576fa15abb7970de1f25b466"
+    },
+    {
+      "id": "other-deities",
+      "title": "Прочие божества",
+      "description": "Божества, для которых в исходном справочнике не указан отдельный пантеон.",
+      "version": "2026.07.22",
+      "language": "ru",
+      "gods_count": 1,
+      "pantheons": [
+        "Неизвестный"
+      ],
+      "filename": "other-deities.json",
+      "size": 2874,
+      "sha256": "95b10ba047777451ce7ef6249a44182f534a2b5ea23960dd172fb6109ec642ac"
+    }
+  ],
+  "updated_at": "2026-07-22T19:45:25+00:00"
+}

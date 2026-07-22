@@ -110,6 +110,10 @@
         <input type="file" name="gods_file" accept="application/json,.json" data-god-import-input hidden>
       </label>
     </form>
+    <button class="map-hero-action glossary-catalog-trigger" type="button" data-open-god-catalog>
+      <span class="glossary-catalog-trigger-icon" aria-hidden="true">↓</span>
+      Подгрузить пантеоны
+    </button>
     <form class="hero-folder-badge" action="{{ url_for('open_campaign_section_folder', slug=campaign.slug, folder='gods') }}" method="post" data-local-job-form>
       <button type="submit">data/campaigns/{{ campaign.slug }}/gods</button>
     </form>
@@ -473,5 +477,43 @@
 {% endblock %}
 
 {% block scripts %}
-  <script src="{{ url_for('static', filename='js/gods.js', v='1') }}"></script>
+  <div class="map-modal glossary-catalog-modal god-catalog-modal" data-god-catalog-modal data-campaign-slug="{{ campaign.slug }}" aria-hidden="true">
+    <div class="map-modal-backdrop" data-close-god-catalog></div>
+    <section class="map-modal-dialog glossary-catalog-dialog" role="dialog" aria-modal="true" aria-labelledby="god-catalog-title">
+      <div class="glossary-catalog-shell">
+        <div class="map-modal-heading">
+          <div>
+            <p class="kicker">Каталог пантеонов</p>
+            <h2 id="god-catalog-title">Подгрузить богов</h2>
+          </div>
+          <button type="button" data-close-god-catalog aria-label="Закрыть каталог пантеонов">×</button>
+        </div>
+
+        <p class="glossary-catalog-intro">Выберите один или несколько сеттингов. Все отмеченные пантеоны установятся в текущую кампанию одной операцией, а ваши собственные записи останутся на месте.</p>
+
+        <div class="glossary-catalog-status" data-god-catalog-status role="status" aria-live="polite">Загружаю каталог…</div>
+        <div class="glossary-catalog-list" data-god-catalog-list aria-label="Доступные пантеоны"></div>
+
+        <label class="glossary-catalog-replace-option">
+          <input type="checkbox" data-god-catalog-replace>
+          <span>
+            <strong>Заменить текущие данные</strong>
+            <small>Удалить всех богов текущей кампании и оставить только выбранные пантеоны.</small>
+          </span>
+        </label>
+
+        <div class="glossary-catalog-meta">
+          <span data-god-catalog-source></span>
+          <a href="#" target="_blank" rel="noopener noreferrer" data-god-catalog-repository hidden>Материалы в GitHub</a>
+        </div>
+
+        <div class="upload-modal-actions glossary-catalog-actions">
+          <button type="button" data-close-god-catalog>Отмена</button>
+          <button type="button" data-install-god-packs disabled>Установить выбранные</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/gods.js', v='pantheon-catalog-replace-1') }}"></script>
 {% endblock %}

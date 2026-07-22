@@ -1,5 +1,7 @@
 # Архив Огмы
 
+![Архив Огмы — локальный командный центр мастера](docs/readme/oghma-overview.png)
+
 Локальное веб-приложение на Python для менеджмента кампейнов D&D 5e: карты, персонажи, заметки, RAW-глоссарий правил, генераторы и ресурсы.
 
 ## Установка в Windows
@@ -71,7 +73,7 @@ Waitress остаётся привязан к внутреннему loopback-п
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements-build.txt
-.\scripts\build-windows-installer.ps1 -Version 1.1.1
+.\scripts\build-windows-installer.ps1 -Version 1.1.2
 ```
 
 Готовый файл и его SHA-256 появятся в `dist-installer`. Каталоги `build` и `dist-installer` являются локальными артефактами и не добавляются в Git.

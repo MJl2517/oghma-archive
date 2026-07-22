@@ -29,6 +29,10 @@
       if (!(form instanceof HTMLFormElement)) return;
       const method = String(form.method || "GET").toUpperCase();
       if (!unsafeMethods.has(method)) return;
+      const returnTo = form.querySelector("input[data-return-to-current-page]");
+      if (returnTo) {
+        returnTo.value = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      }
       let field = form.querySelector('input[name="_csrf_token"]');
       if (!field) {
         field = document.createElement("input");

@@ -1,5 +1,10 @@
 const godsPage = document.querySelector("[data-gods-page]");
 const godDomainFilters = document.querySelector("[data-god-domain-filters]");
+const godCatalogModal = document.querySelector("[data-god-catalog-modal]");
+const godCatalogList = document.querySelector("[data-god-catalog-list]");
+const godCatalogStatus = document.querySelector("[data-god-catalog-status]");
+const godCatalogInstallButton = document.querySelector("[data-install-god-packs]");
+const godCatalogReplaceInput = document.querySelector("[data-god-catalog-replace]");
 let includedGodDomains = new Set((godsPage?.dataset.activeDomains || "").split("||").filter(Boolean).map(normalizeGodDomain));
 let excludedGodDomains = new Set((godsPage?.dataset.excludedDomains || "").split("||").filter(Boolean).map(normalizeGodDomain));
 let includedGodAlignments = new Set((godsPage?.dataset.activeAlignments || "").split("||").filter(Boolean).map(normalizeGodDomain));
@@ -13,6 +18,7 @@ let godsRefreshToken = 0;
 let draggedGodCategoryItem = null;
 let godFilterPanelForcedOpen = false;
 let godSelectModeEnabled = false;
+let godCatalogLoaded = false;
 const godScrollStorageKey = "ogma:gods:scroll";
 
 function normalizeGodDomain(value) {
@@ -326,7 +332,202 @@ function closeGodModals(keepScrollLock = false) {
   }
 }
 
+function godCatalogErrorMessage(payload, fallback) {
+  return payload?.error?.message || payload?.error || fallback;
+}
+
+function setGodCatalogStatus(message, tone = "") {
+  if (!godCatalogStatus) return;
+  godCatalogStatus.textContent = message;
+  godCatalogStatus.dataset.tone = tone;
+  godCatalogStatus.hidden = !message;
+}
+
+function updateGodCatalogSelection() {
+  if (!godCatalogInstallButton || godCatalogInstallButton.dataset.busy === "true") return;
+  const selectedCount = godCatalogList?.querySelectorAll("[data-god-pack]:checked").length || 0;
+  const replaceExisting = godCatalogReplaceInput?.checked === true;
+  godCatalogInstallButton.disabled = selectedCount === 0;
+  godCatalogInstallButton.textContent = selectedCount
+    ? `${replaceExisting ? "Заменить данными" : "Установить выбранные"} (${selectedCount})`
+    : "Установить выбранные";
+}
+
+function createGodCatalogPack(pack) {
+  const label = document.createElement("label");
+  label.className = "glossary-catalog-pack";
+
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.value = pack.id || "";
+  checkbox.dataset.godPack = "";
+  checkbox.setAttribute("aria-label", `Выбрать пантеон ${pack.title || "богов"}`);
+
+  const copy = document.createElement("span");
+  copy.className = "glossary-catalog-pack-copy";
+  const heading = document.createElement("span");
+  heading.className = "glossary-catalog-pack-heading";
+  const title = document.createElement("strong");
+  title.textContent = pack.title || "Пантеон";
+  heading.append(title);
+  if (pack.installed || pack.update_available) {
+    const badge = document.createElement("small");
+    badge.className = "glossary-catalog-pack-badge";
+    badge.textContent = pack.update_available ? "Доступно обновление" : "Установлен";
+    heading.append(badge);
+  }
+
+  const description = document.createElement("span");
+  description.className = "glossary-catalog-pack-description";
+  description.textContent = pack.description || "Готовый набор богов для кампании.";
+  const meta = document.createElement("small");
+  meta.className = "glossary-catalog-pack-meta";
+  const parts = [
+    `${Number(pack.gods_count || 0).toLocaleString("ru-RU")} божеств`,
+    `версия ${pack.version || "—"}`,
+    String(pack.language || "ru").toUpperCase(),
+  ];
+  if (Array.isArray(pack.pantheons) && pack.pantheons.length) parts.push(pack.pantheons.join(" · "));
+  meta.textContent = parts.join(" · ");
+  copy.append(heading, description, meta);
+  label.append(checkbox, copy);
+  return label;
+}
+
+function renderGodCatalog(payload) {
+  if (!godCatalogList) return;
+  godCatalogList.replaceChildren();
+  const packs = Array.isArray(payload?.packs) ? payload.packs : [];
+  packs.forEach((pack) => godCatalogList.append(createGodCatalogPack(pack)));
+  const source = document.querySelector("[data-god-catalog-source]");
+  if (source) source.textContent = payload?.source === "github" ? "Свежий каталог из GitHub" : "Встроенная копия каталога";
+  const repository = document.querySelector("[data-god-catalog-repository]");
+  if (repository && payload?.repository_url) {
+    repository.href = payload.repository_url;
+    repository.hidden = false;
+  }
+  if (packs.length) setGodCatalogStatus("");
+  else setGodCatalogStatus("В каталоге пока нет доступных пантеонов.");
+  updateGodCatalogSelection();
+}
+
+async function loadGodCatalog() {
+  if (!godCatalogList || godCatalogLoaded) return;
+  const campaignSlug = godCatalogModal?.dataset.campaignSlug || "";
+  setGodCatalogStatus("Загружаю каталог…");
+  godCatalogList.setAttribute("aria-busy", "true");
+  if (godCatalogInstallButton) godCatalogInstallButton.disabled = true;
+  try {
+    const response = await fetch(`/gods/catalog?campaign=${encodeURIComponent(campaignSlug)}`, {
+      headers: { "Accept": "application/json", "X-Requested-With": "fetch" },
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) throw new Error(godCatalogErrorMessage(payload, "Не удалось загрузить каталог пантеонов."));
+    renderGodCatalog(payload);
+    godCatalogLoaded = true;
+  } catch (error) {
+    godCatalogList.replaceChildren();
+    setGodCatalogStatus(error.message || "Не удалось загрузить каталог пантеонов.", "error");
+  } finally {
+    godCatalogList.removeAttribute("aria-busy");
+  }
+}
+
+function openGodCatalog() {
+  if (!godCatalogModal) return;
+  godCatalogModal.classList.add("is-open");
+  godCatalogModal.setAttribute("aria-hidden", "false");
+  lockGodModalScroll();
+  loadGodCatalog();
+  window.setTimeout(() => godCatalogModal.querySelector("button[data-close-god-catalog]")?.focus(), 30);
+}
+
+function closeGodCatalog() {
+  if (!godCatalogModal || godCatalogInstallButton?.dataset.busy === "true") return;
+  godCatalogModal.classList.remove("is-open");
+  godCatalogModal.setAttribute("aria-hidden", "true");
+  if (godCatalogReplaceInput) godCatalogReplaceInput.checked = false;
+  updateGodCatalogSelection();
+  if (!document.querySelector(".god-view-modal.is-open, .god-edit-modal.is-open, .god-create-modal.is-open")) {
+    unlockGodModalScroll();
+  }
+}
+
+async function installSelectedGodPacks() {
+  if (!godCatalogList || !godCatalogInstallButton) return;
+  const packs = [...godCatalogList.querySelectorAll("[data-god-pack]:checked")]
+    .map((input) => input.value)
+    .filter(Boolean);
+  if (!packs.length) return;
+  const replaceExisting = godCatalogReplaceInput?.checked === true;
+  if (
+    replaceExisting
+    && !window.confirm("Все боги текущей кампании будут удалены и заменены выбранными пантеонами. Продолжить?")
+  ) return;
+
+  godCatalogInstallButton.dataset.busy = "true";
+  godCatalogInstallButton.disabled = true;
+  godCatalogInstallButton.textContent = "Устанавливаю…";
+  godCatalogList.querySelectorAll("input").forEach((input) => { input.disabled = true; });
+  if (godCatalogReplaceInput) godCatalogReplaceInput.disabled = true;
+  setGodCatalogStatus(
+    replaceExisting ? "Проверяю пантеоны и готовлю полную замену…" : "Проверяю и объединяю выбранные пантеоны…",
+  );
+  try {
+    const response = await fetch("/gods/catalog/install", {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Requested-With": "fetch",
+      },
+      body: JSON.stringify({
+        campaign_slug: godCatalogModal?.dataset.campaignSlug || "",
+        packs,
+        replace: replaceExisting,
+      }),
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) throw new Error(godCatalogErrorMessage(payload, "Не удалось установить пантеоны."));
+    const campaignSlug = godCatalogModal?.dataset.campaignSlug || "";
+    const refreshUrl = replaceExisting
+      ? `/gods?campaign=${encodeURIComponent(campaignSlug)}`
+      : godFilterUrl();
+    await loadGodsFragment(refreshUrl, false);
+    if (replaceExisting) window.history.replaceState({}, "", refreshUrl);
+    const successMessage = payload.replaced
+      ? `Готово: удалено прежних записей ${payload.removed || 0}, загружено ${payload.total || 0}.`
+      : `Готово: добавлено ${payload.created || 0}, обновлено ${payload.updated || 0}.`;
+    setGodCatalogStatus(successMessage, "success");
+    godCatalogInstallButton.textContent = "Установлено";
+    godCatalogLoaded = false;
+    if (godCatalogReplaceInput) godCatalogReplaceInput.disabled = false;
+    delete godCatalogInstallButton.dataset.busy;
+  } catch (error) {
+    setGodCatalogStatus(error.message || "Не удалось установить пантеоны.", "error");
+    godCatalogList.querySelectorAll("input").forEach((input) => { input.disabled = false; });
+    if (godCatalogReplaceInput) godCatalogReplaceInput.disabled = false;
+    delete godCatalogInstallButton.dataset.busy;
+    updateGodCatalogSelection();
+  }
+}
+
 document.addEventListener("click", (event) => {
+  if (event.target.closest("[data-open-god-catalog]")) {
+    openGodCatalog();
+    return;
+  }
+
+  if (event.target.closest("[data-close-god-catalog]")) {
+    closeGodCatalog();
+    return;
+  }
+
+  if (event.target.closest("[data-install-god-packs]")) {
+    installSelectedGodPacks();
+    return;
+  }
+
   const selectButton = event.target.closest("[data-god-select-button]");
   if (selectButton) {
     event.preventDefault();
@@ -580,6 +781,11 @@ document.addEventListener("input", (event) => {
 });
 
 document.addEventListener("change", (event) => {
+  if (event.target.closest("[data-god-pack], [data-god-catalog-replace]")) {
+    updateGodCatalogSelection();
+    return;
+  }
+
   const importInput = event.target.closest("[data-god-import-input]");
   if (importInput) {
     const form = importInput.closest("[data-god-import-form]");
@@ -677,6 +883,10 @@ document.addEventListener("dragend", () => {
 });
 
 document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && godCatalogModal?.classList.contains("is-open")) {
+    closeGodCatalog();
+    return;
+  }
   if (event.key === "Escape") {
     closeGodSelects();
     closeGodTagSelects();

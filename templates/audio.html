@@ -32,6 +32,7 @@
     </select>
     <input name="batch_tags" value="{{ selected_tags | join(', ') }}" placeholder="Теги для пачки: Бой, Страшное" data-audio-upload-tags>
     <button class="audio-primary-button" type="submit">Загрузить аудио</button>
+    <button class="audio-secondary-button" type="button" data-open-audio-link-modal>Добавить YouTube</button>
   </form>
 </section>
 
@@ -67,7 +68,6 @@
       <strong>Фильтруйте по настроению, категории и названию без перезагрузки страницы</strong>
     </div>
     <div class="audio-tool-actions">
-      <button class="audio-primary-button" type="button" data-open-audio-link-modal>Добавить YouTube</button>
       <button class="tag-edit-toggle" type="button" data-toggle-audio-tags aria-expanded="false" title="Редактировать теги">⚙</button>
     </div>
   </div>

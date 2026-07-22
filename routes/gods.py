@@ -65,6 +65,23 @@ def register_god_routes(bp, views: dict) -> None:
             return jsonify(payload), status
         return views["gods_redirect"](campaign_slug)
 
+    def god_catalog():
+        campaign_slug = request.args.get("campaign", "").strip()
+        force = request.args.get("refresh", "").strip().lower() in {"1", "true", "yes"}
+        action, payload, status = god_service.god_catalog(views, campaign_slug, force=force)
+        if action == "not_found":
+            return jsonify(payload), status
+        return jsonify(payload), status
+
+    def install_god_packs():
+        action, _campaign_slug, payload, status = god_service.install_god_packs(
+            views,
+            request.get_json(silent=True) or {},
+        )
+        if action == "not_found":
+            return jsonify(payload), status
+        return jsonify(payload), status
+
     def add_god_domain():
         action, campaign_slug, payload = god_service.add_god_domain(views, request.form)
         if action == "not_found":
@@ -107,6 +124,8 @@ def register_god_routes(bp, views: dict) -> None:
         ("POST", "/gods/delete-all", "delete_all_gods", delete_all_gods),
         ("GET", "/gods/export", "export_gods", export_gods),
         ("POST", "/gods/import", "import_gods", import_gods),
+        ("GET", "/gods/catalog", "god_catalog", god_catalog),
+        ("POST", "/gods/catalog/install", "install_god_packs", install_god_packs),
         ("POST", "/gods/domains/add", "add_god_domain", add_god_domain),
         ("POST", "/gods/domains/delete", "delete_god_domain", delete_god_domain),
         ("POST", "/gods/filters/add", "add_god_filter_value", add_god_filter_value),

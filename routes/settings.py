@@ -1,10 +1,18 @@
 from flask import jsonify, redirect, render_template, request, url_for
 
+from ogma.safe_urls import InternalPath, UnsafeUrl
 from ogma.services import settings as setting_service
 
 
 def _is_fetch() -> bool:
     return request.headers.get("X-Requested-With") == "fetch" or "application/json" in request.headers.get("Accept", "")
+
+
+def _safe_return_path(value: str, fallback: str) -> str:
+    try:
+        return InternalPath.parse(value).value
+    except UnsafeUrl:
+        return fallback
 
 
 def register_setting_routes(bp, views: dict) -> None:
@@ -71,7 +79,8 @@ def register_setting_routes(bp, views: dict) -> None:
 
     def update_appearance_settings():
         setting_service.update_appearance_settings(views, request.form)
-        return redirect(request.referrer or url_for("settings_page", notice="settings-saved"))
+        fallback = url_for("settings_page", notice="settings-saved")
+        return redirect(_safe_return_path(request.form.get("return_to", ""), fallback))
 
     def update_favorite_campaign_settings():
         setting_service.update_favorite_campaign_settings(views, request.form)

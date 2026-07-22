@@ -186,20 +186,14 @@ def export_gods(deps: dict, query: dict) -> tuple[str, str, str, str, int]:
     return "ok", campaign_slug, filename, json.dumps(payload, ensure_ascii=False, indent=2), 200
 
 
-def import_gods(deps: dict, form, files) -> tuple[str, str, dict, int]:
-    campaign_slug = form.get("campaign_slug", "").strip()
-    if deps["get_campaign"](campaign_slug) is None:
-        return "not_found", campaign_slug, {"ok": False, "error": "campaign_not_found"}, 404
-
-    upload = files.get("gods_file")
-    if upload is None or not getattr(upload, "filename", ""):
-        return "ok", campaign_slug, {"ok": False, "error": "missing_file"}, 400
-
-    try:
-        raw_payload = load_limited_json_stream(upload.stream)
-    except (OSError, TypeError, ValueError, json.JSONDecodeError):
-        return "ok", campaign_slug, {"ok": False, "error": "invalid_json"}, 400
-
+def _merge_import_payload(
+    deps: dict,
+    campaign_slug: str,
+    raw_payload: object,
+    *,
+    preserve_ids: bool = False,
+    replace_existing: bool = False,
+) -> tuple[dict, int]:
     if isinstance(raw_payload, list):
         incoming_raw = raw_payload
         labels = {}
@@ -207,16 +201,18 @@ def import_gods(deps: dict, form, files) -> tuple[str, str, dict, int]:
         incoming_raw = raw_payload.get("gods", [])
         labels = raw_payload.get("labels", {})
     else:
-        return "ok", campaign_slug, {"ok": False, "error": "invalid_payload"}, 400
+        return {"ok": False, "error": "invalid_payload"}, 400
 
     if not isinstance(incoming_raw, list):
-        return "ok", campaign_slug, {"ok": False, "error": "invalid_gods"}, 400
+        return {"ok": False, "error": "invalid_gods"}, 400
 
     imported_gods = [deps["normalize_god"](item, campaign_slug) for item in incoming_raw if isinstance(item, dict)]
     if not imported_gods:
-        return "ok", campaign_slug, {"ok": False, "error": "empty_import"}, 400
+        return {"ok": False, "error": "empty_import"}, 400
 
-    gods = deps["load_gods"](campaign_slug)
+    existing_gods = deps["load_gods"](campaign_slug)
+    removed = len(existing_gods) if replace_existing else 0
+    gods = [] if replace_existing else existing_gods
     normalized_existing = [deps["normalize_god"](item, campaign_slug) for item in gods]
     by_id = {god.get("id"): index for index, god in enumerate(normalized_existing) if god.get("id")}
     by_name = {_god_import_name_key(god): index for index, god in enumerate(normalized_existing) if _god_import_name_key(god)}
@@ -231,7 +227,8 @@ def import_gods(deps: dict, form, files) -> tuple[str, str, dict, int]:
             match_index = by_name.get(_god_import_name_key(god))
         if match_index is None:
             created += 1
-            god["id"] = uuid4().hex
+            if not preserve_ids or not god.get("id") or god.get("id") in by_id:
+                god["id"] = uuid4().hex
             gods.append(god)
             normalized_existing.append(god)
             new_index = len(normalized_existing) - 1
@@ -250,9 +247,87 @@ def import_gods(deps: dict, form, files) -> tuple[str, str, dict, int]:
         by_name[_god_import_name_key(god)] = match_index
         updated += 1
 
-    _merge_imported_labels(deps, campaign_slug, labels, imported_gods)
+    _merge_imported_labels(
+        deps,
+        campaign_slug,
+        labels,
+        imported_gods,
+        replace_existing=replace_existing,
+    )
     deps["save_gods"](campaign_slug, gods)
-    return "ok", campaign_slug, {"ok": True, "created": created, "updated": updated, "total": len(imported_gods)}, 200
+    return {
+        "ok": True,
+        "created": created,
+        "updated": updated,
+        "total": len(imported_gods),
+        "replaced": replace_existing,
+        "removed": removed,
+    }, 200
+
+
+def import_gods(deps: dict, form, files) -> tuple[str, str, dict, int]:
+    campaign_slug = form.get("campaign_slug", "").strip()
+    if deps["get_campaign"](campaign_slug) is None:
+        return "not_found", campaign_slug, {"ok": False, "error": "campaign_not_found"}, 404
+
+    upload = files.get("gods_file")
+    if upload is None or not getattr(upload, "filename", ""):
+        return "ok", campaign_slug, {"ok": False, "error": "missing_file"}, 400
+
+    try:
+        raw_payload = load_limited_json_stream(upload.stream)
+    except (OSError, TypeError, ValueError, json.JSONDecodeError):
+        return "ok", campaign_slug, {"ok": False, "error": "invalid_json"}, 400
+    payload, status = _merge_import_payload(deps, campaign_slug, raw_payload)
+    return "ok", campaign_slug, payload, status
+
+
+def god_catalog(deps: dict, campaign_slug: str, *, force: bool = False) -> tuple[str, dict, int]:
+    if deps["get_campaign"](campaign_slug) is None:
+        return "not_found", {"ok": False, "error": "campaign_not_found"}, 404
+    return "ok", deps["god_catalog_manager"].catalog(campaign_slug, force=force), 200
+
+
+def install_god_packs(deps: dict, request_payload: object) -> tuple[str, str, dict, int]:
+    if not isinstance(request_payload, dict):
+        return "ok", "", {"ok": False, "error": "invalid_payload"}, 400
+    campaign_slug = str(request_payload.get("campaign_slug", "")).strip()
+    if deps["get_campaign"](campaign_slug) is None:
+        return "not_found", campaign_slug, {"ok": False, "error": "campaign_not_found"}, 404
+
+    downloads = deps["god_catalog_manager"].download_packs(request_payload.get("packs"))
+    combined_payload = {
+        "schema": GODS_EXPORT_SCHEMA,
+        "labels": {"alignments": [], "domains": [], "ranks": [], "pantheons": []},
+        "gods": [],
+    }
+    for download in downloads:
+        pack_payload = download["payload"]
+        labels = pack_payload.get("labels", {})
+        if isinstance(labels, dict):
+            for key in combined_payload["labels"]:
+                values = labels.get(key, [])
+                if isinstance(values, list):
+                    combined_payload["labels"][key].extend(values)
+        combined_payload["gods"].extend(pack_payload.get("gods", []))
+
+    result, status = _merge_import_payload(
+        deps,
+        campaign_slug,
+        combined_payload,
+        preserve_ids=True,
+        replace_existing=request_payload.get("replace") is True,
+    )
+    if status != 200 or not result.get("ok"):
+        return "ok", campaign_slug, {"ok": False, "error": "empty_import"}, 400
+
+    entries = [download["entry"] for download in downloads]
+    deps["god_catalog_manager"].record_installed(campaign_slug, entries)
+    result["packs"] = [
+        {"id": entry["id"], "title": entry["title"], "version": entry["version"]}
+        for entry in entries
+    ]
+    return "ok", campaign_slug, result, status
 
 
 def add_god_domain(deps: dict, form) -> tuple[str, str, dict]:
@@ -404,10 +479,24 @@ def _remember_labels(deps: dict, campaign_slug: str, god: dict) -> None:
 def _god_import_name_key(god: dict) -> str:
     name = str(god.get("name", "")).strip().casefold()
     english_name = str(god.get("english_name", "")).strip().casefold()
-    return "||".join(item for item in [name, english_name] if item)
+    pantheons = sorted(
+        {
+            str(value).strip().casefold()
+            for value in (god.get("pantheons", []) or [god.get("pantheon", "")])
+            if str(value).strip()
+        }
+    )
+    return "||".join([item for item in [name, english_name] if item] + pantheons)
 
 
-def _merge_imported_labels(deps: dict, campaign_slug: str, labels: dict, gods: list[dict]) -> None:
+def _merge_imported_labels(
+    deps: dict,
+    campaign_slug: str,
+    labels: dict,
+    gods: list[dict],
+    *,
+    replace_existing: bool = False,
+) -> None:
     if not isinstance(labels, dict):
         labels = {}
 
@@ -418,6 +507,7 @@ def _merge_imported_labels(deps: dict, campaign_slug: str, labels: dict, gods: l
         deps["save_god_alignments"],
         labels.get("alignments", []),
         [god.get("alignment", "") for god in gods],
+        existing_values=[deps["FALLBACK_GOD_ALIGNMENT"]] if replace_existing else None,
     )
     _save_merged_labels(
         deps,
@@ -426,6 +516,7 @@ def _merge_imported_labels(deps: dict, campaign_slug: str, labels: dict, gods: l
         deps["save_god_domains"],
         labels.get("domains", []),
         [domain for god in gods for domain in god.get("domains", [])],
+        existing_values=[] if replace_existing else None,
     )
     _save_merged_labels(
         deps,
@@ -434,6 +525,7 @@ def _merge_imported_labels(deps: dict, campaign_slug: str, labels: dict, gods: l
         deps["save_god_ranks"],
         labels.get("ranks", []),
         [god.get("rank", "") for god in gods],
+        existing_values=[] if replace_existing else None,
     )
     _save_merged_labels(
         deps,
@@ -442,11 +534,23 @@ def _merge_imported_labels(deps: dict, campaign_slug: str, labels: dict, gods: l
         deps["save_god_pantheons"],
         labels.get("pantheons", []),
         [pantheon for god in gods for pantheon in (god.get("pantheons", []) or [god.get("pantheon", "")])],
+        existing_values=[] if replace_existing else None,
     )
 
 
-def _save_merged_labels(deps: dict, campaign_slug: str, load_func, save_func, imported_values, god_values) -> None:
-    merged = deps["normalize_tags"](load_func(campaign_slug))
+def _save_merged_labels(
+    deps: dict,
+    campaign_slug: str,
+    load_func,
+    save_func,
+    imported_values,
+    god_values,
+    *,
+    existing_values=None,
+) -> None:
+    merged = deps["normalize_tags"](
+        load_func(campaign_slug) if existing_values is None else existing_values
+    )
     known = {item.casefold() for item in merged}
     imported_list = imported_values if isinstance(imported_values, (list, tuple, set)) else [imported_values]
     god_list = god_values if isinstance(god_values, (list, tuple, set)) else [god_values]

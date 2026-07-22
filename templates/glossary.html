@@ -64,6 +64,10 @@
           <input type="file" name="rules_file" accept="application/json,.json" data-rule-import-input hidden>
         </label>
       </form>
+      <button class="map-hero-action glossary-catalog-trigger" type="button" data-open-glossary-catalog>
+        <span class="glossary-catalog-trigger-icon" aria-hidden="true">↓</span>
+        Подгрузить глоссарий
+      </button>
       <button class="tag-edit-toggle" type="button" data-toggle-rule-tags aria-expanded="false" title="Редактировать теги">⚙</button>
     </div>
   </div>
@@ -456,6 +460,46 @@
 {% endblock %}
 
 {% block scripts %}
+  <div class="map-modal glossary-catalog-modal" data-glossary-catalog-modal aria-hidden="true">
+    <div class="map-modal-backdrop" data-close-glossary-catalog></div>
+    <section class="map-modal-dialog glossary-catalog-dialog" role="dialog" aria-modal="true" aria-labelledby="glossary-catalog-title">
+      <div class="glossary-catalog-shell">
+        <div class="map-modal-heading">
+          <div>
+            <p class="kicker">Каталог материалов</p>
+            <h2 id="glossary-catalog-title">Подгрузить глоссарий</h2>
+          </div>
+          <button type="button" data-close-glossary-catalog aria-label="Закрыть каталог глоссариев">×</button>
+        </div>
+
+        <p class="glossary-catalog-intro">Выберите готовые наборы правил. Совпадающие записи обновятся, остальные правила и ваши собственные материалы останутся на месте.</p>
+
+        <div class="glossary-catalog-status" data-glossary-catalog-status role="status" aria-live="polite">
+          Загружаю каталог…
+        </div>
+        <div class="glossary-catalog-list" data-glossary-catalog-list aria-label="Доступные глоссарии"></div>
+
+        <label class="glossary-catalog-replace-option">
+          <input type="checkbox" data-glossary-catalog-replace>
+          <span>
+            <strong>Заменить текущие данные</strong>
+            <small>Удалить весь текущий глоссарий и оставить только правила из выбранных наборов.</small>
+          </span>
+        </label>
+
+        <div class="glossary-catalog-meta">
+          <span data-glossary-catalog-source></span>
+          <a href="#" target="_blank" rel="noopener noreferrer" data-glossary-catalog-repository hidden>Материалы в GitHub</a>
+        </div>
+
+        <div class="upload-modal-actions glossary-catalog-actions">
+          <button type="button" data-close-glossary-catalog>Отмена</button>
+          <button type="button" data-install-glossary-packs disabled>Установить выбранные</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
   <div class="spotlight rule-search-modal" data-rule-search-modal aria-hidden="true">
     <div class="spotlight-backdrop" data-close-rule-search></div>
     <section class="spotlight-dialog" role="dialog" aria-modal="true" aria-label="Поиск по глоссарию правил">
@@ -480,5 +524,5 @@
     </section>
   </div>
   <div class="copy-toast" data-rule-toast role="status" aria-live="polite"></div>
-  <script src="{{ url_for('static', filename='js/glossary.js', v='rule-edit-optimized-2') }}"></script>
+  <script src="{{ url_for('static', filename='js/glossary.js', v='github-catalog-replace-1') }}"></script>
 {% endblock %}

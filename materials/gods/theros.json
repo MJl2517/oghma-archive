@@ -1,0 +1,52 @@
+{
+  "schema": "ogma.gods.export.v1",
+  "exported_at": "2026-07-22T19:45:25+00:00",
+  "source_campaign": {
+    "slug": "ильмарен-салиф",
+    "name": "Ильмарен | Салиф"
+  },
+  "labels": {
+    "alignments": [
+      "законно-злой"
+    ],
+    "domains": [
+      "Могила",
+      "Смерть"
+    ],
+    "ranks": [
+      "средний бог"
+    ],
+    "pantheons": [
+      "Терос"
+    ]
+  },
+  "gods": [
+    {
+      "id": "catalog-theros-11c1abdd5c6e301650448249",
+      "name": "Атрей",
+      "english_name": "Athreos",
+      "url": "https://5e14.ttg.club/gods/athreos",
+      "alignment": "законно-злой",
+      "short_alignment": "ЗЗ",
+      "domains": [
+        "Могила",
+        "Смерть"
+      ],
+      "pantheon": "Терос",
+      "pantheons": [
+        "Терос"
+      ],
+      "rank": "средний бог",
+      "titles": [],
+      "symbol": "Скиф из костей",
+      "source": "MOT",
+      "source_name": "Мифические одиссеи Тероса",
+      "images": [
+        "https://img.ttg.club/gods/athreos.webp"
+      ],
+      "description": "",
+      "created_at": "2026-05-13T06:31:42",
+      "updated_at": "2026-05-13T06:31:42"
+    }
+  ]
+}

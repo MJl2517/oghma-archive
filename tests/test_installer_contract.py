@@ -31,6 +31,7 @@ class InstallerContractTests(unittest.TestCase):
     def test_packaged_application_contains_web_assets(self):
         spec = (ROOT / "installer" / "Oghma.spec").read_text(encoding="utf-8")
         self.assertIn('(str(project_root / "templates"), "templates")', spec)
+        self.assertIn('(str(project_root / "materials"), "materials")', spec)
         self.assertIn("static_datas", spec)
         self.assertIn('"img/themes/**/*.jpg"', spec)
         self.assertIn('project_root / "build" / "version-info.txt"', spec)

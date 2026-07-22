@@ -22,6 +22,8 @@ from ogma.foundry import link_statuses as foundry_spec_statuses
 from ogma.foundry import normalize_foundry_relative_path
 from ogma.foundry import remove_junction
 from ogma.foundry import sync_summary as foundry_sync_summary
+from ogma.god_catalog import GodCatalogManager
+from ogma.glossary_catalog import GlossaryCatalogManager
 from ogma.external_http import ExternalHttpRejected, fetch_restricted, validate_restricted_https_url
 from ogma.errors import ExternalOperationError, ValidationError
 from ogma.json_store import read_json, write_json
@@ -495,6 +497,8 @@ settings_store = SettingsStore(
     SPOTLIGHT_MATERIAL_OPTIONS,
 )
 update_manager = UpdateManager(DATA_DIR, BASE_DIR, APP_VERSION)
+glossary_catalog_manager = GlossaryCatalogManager(DATA_DIR, BASE_DIR, APP_VERSION)
+god_catalog_manager = GodCatalogManager(DATA_DIR, BASE_DIR, APP_VERSION)
 app = OgmaFlask(__name__)
 configure_local_security(app, DATA_DIR, LOCAL_SERVER_PORT)
 

@@ -38,6 +38,17 @@ def register_rule_routes(bp, views: dict) -> None:
             return jsonify(payload), status
         return redirect(url_for("rules_page"))
 
+    def glossary_catalog():
+        force = request.args.get("refresh", "").strip().lower() in {"1", "true", "yes"}
+        return jsonify(rule_service.glossary_catalog(views, force=force))
+
+    def install_glossary_packs():
+        payload, status = rule_service.install_glossary_packs(
+            views,
+            request.get_json(silent=True) or {},
+        )
+        return jsonify(payload), status
+
     def update_rule(rule_id: str):
         payload, status = rule_service.update_rule(views, request.form, rule_id)
         if _is_fetch():
@@ -98,6 +109,8 @@ def register_rule_routes(bp, views: dict) -> None:
         ("POST", "/rules/add", "add_rule", add_rule),
         ("GET", "/rules/export", "export_rules", export_rules),
         ("POST", "/rules/import", "import_rules", import_rules),
+        ("GET", "/rules/glossaries/catalog", "glossary_catalog", glossary_catalog),
+        ("POST", "/rules/glossaries/install", "install_glossary_packs", install_glossary_packs),
         ("POST", "/rules/<rule_id>/update", "update_rule", update_rule),
         ("POST", "/rules/<rule_id>/delete", "delete_rule", delete_rule),
         ("POST", "/rules/tags/add", "add_rule_tag", add_rule_tag),

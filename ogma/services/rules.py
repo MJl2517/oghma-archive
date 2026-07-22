@@ -146,16 +146,12 @@ def export_rules(deps: dict) -> tuple[str, str, int]:
     return filename, json.dumps(payload, ensure_ascii=False, indent=2), 200
 
 
-def import_rules(deps: dict, files) -> tuple[dict, int]:
-    upload = files.get("rules_file")
-    if upload is None or not getattr(upload, "filename", ""):
-        return {"ok": False, "error": "missing_file"}, 400
-
-    try:
-        raw_payload = load_limited_json_stream(upload.stream)
-    except (OSError, TypeError, ValueError):
-        return {"ok": False, "error": "invalid_json"}, 400
-
+def _merge_import_payload(
+    deps: dict,
+    raw_payload: object,
+    *,
+    replace_existing: bool = False,
+) -> tuple[dict, int]:
     if isinstance(raw_payload, list):
         incoming_raw = raw_payload
         labels = {}
@@ -174,7 +170,9 @@ def import_rules(deps: dict, files) -> tuple[dict, int]:
     if not imported_rules:
         return {"ok": False, "error": "empty_import"}, 400
 
-    rules = deps["load_rules"]()
+    existing_rules = deps["load_rules"]()
+    removed = len(existing_rules) if replace_existing else 0
+    rules = [] if replace_existing else existing_rules
     by_id = {str(rule.get("id", "")).strip(): index for index, rule in enumerate(rules) if str(rule.get("id", "")).strip()}
     by_title_tag = {_rule_import_key(rule): index for index, rule in enumerate(rules) if _rule_import_key(rule).strip("|")}
 
@@ -203,10 +201,80 @@ def import_rules(deps: dict, files) -> tuple[dict, int]:
 
     imported_tags = labels.get("tags", []) if isinstance(labels, dict) else []
     imported_sources = labels.get("sources", []) if isinstance(labels, dict) else []
-    deps["save_rule_tags"](_merge_unique_labels(deps["load_rule_tags"](), imported_tags, [rule["tag"] for rule in imported_rules]))
-    deps["save_rule_sources"](_merge_unique_labels(deps["load_rule_sources"](), imported_sources, [rule["source"] for rule in imported_rules]))
+    existing_tags = [deps["SERVICE_RULE_TAG"]] if replace_existing else deps["load_rule_tags"]()
+    existing_sources = [] if replace_existing else deps["load_rule_sources"]()
+    deps["save_rule_tags"](_merge_unique_labels(existing_tags, imported_tags, [rule["tag"] for rule in imported_rules]))
+    deps["save_rule_sources"](_merge_unique_labels(existing_sources, imported_sources, [rule["source"] for rule in imported_rules]))
     deps["save_rules"](rules)
-    return {"ok": True, "created": created, "updated": updated, "total": len(imported_rules)}, 200
+    return {
+        "ok": True,
+        "created": created,
+        "updated": updated,
+        "total": len(imported_rules),
+        "replaced": replace_existing,
+        "removed": removed,
+    }, 200
+
+
+def import_rules(deps: dict, files) -> tuple[dict, int]:
+    upload = files.get("rules_file")
+    if upload is None or not getattr(upload, "filename", ""):
+        return {"ok": False, "error": "missing_file"}, 400
+
+    try:
+        raw_payload = load_limited_json_stream(upload.stream)
+    except (OSError, TypeError, ValueError):
+        return {"ok": False, "error": "invalid_json"}, 400
+    return _merge_import_payload(deps, raw_payload)
+
+
+def glossary_catalog(deps: dict, *, force: bool = False) -> dict:
+    return deps["glossary_catalog_manager"].catalog(force=force)
+
+
+def install_glossary_packs(deps: dict, request_payload: object) -> tuple[dict, int]:
+    if not isinstance(request_payload, dict):
+        raise ValidationError("Некорректный запрос установки глоссария.")
+    downloads = deps["glossary_catalog_manager"].download_packs(request_payload.get("packs"))
+
+    combined_payload = {
+        "schema": RULES_EXPORT_SCHEMA,
+        "labels": {"tags": [], "sources": []},
+        "rules": [],
+    }
+    for download in downloads:
+        pack_payload = download["payload"]
+        labels = pack_payload.get("labels", {})
+        if isinstance(labels, dict):
+            combined_payload["labels"]["tags"] = _merge_unique_labels(
+                combined_payload["labels"]["tags"],
+                labels.get("tags", []),
+            )
+            combined_payload["labels"]["sources"] = _merge_unique_labels(
+                combined_payload["labels"]["sources"],
+                labels.get("sources", []),
+            )
+        combined_payload["rules"].extend(pack_payload.get("rules", []))
+
+    result, status = _merge_import_payload(
+        deps,
+        combined_payload,
+        replace_existing=request_payload.get("replace") is True,
+    )
+    if status != 200 or not result.get("ok"):
+        raise ValidationError("В выбранных наборах нет правил, которые можно установить.")
+
+    entries = [download["entry"] for download in downloads]
+    deps["glossary_catalog_manager"].record_installed(entries)
+    result["packs"] = [
+        {
+            "id": entry["id"],
+            "title": entry["title"],
+            "version": entry["version"],
+        }
+        for entry in entries
+    ]
+    return result, status
 
 
 def add_rule(deps: dict, form) -> dict:

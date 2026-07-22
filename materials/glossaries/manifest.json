@@ -1,0 +1,31 @@
+{
+  "schema": "ogma.glossary.catalog.v1",
+  "packs": [
+    {
+      "id": "dnd5e-ru",
+      "title": "D&D 5e — глоссарий правил",
+      "description": "Русскоязычный справочник правил D&D 5e для быстрого поиска во время игры.",
+      "version": "2026.07.22",
+      "language": "ru",
+      "rules_count": 434,
+      "sources": [
+        "PHB",
+        "PHB14",
+        "DMG",
+        "DMG14",
+        "MM",
+        "XGE14",
+        "TCE14",
+        "DMS",
+        "FRHoF",
+        "FRAiF",
+        "XGE",
+        "TCE"
+      ],
+      "filename": "dnd5e-ru.json",
+      "size": 866395,
+      "sha256": "2b1eec3a1ed4ae2666be4c6be60b47996ce0e19e42570e932c5d471a16d37927"
+    }
+  ],
+  "updated_at": "2026-07-22T19:20:13+00:00"
+}

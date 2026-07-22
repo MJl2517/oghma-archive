@@ -10,10 +10,10 @@
   {% if active_page_art_url %}
     <link rel="preload" as="image" href="{{ active_page_art_url }}" fetchpriority="high">
   {% endif %}
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css', v=asset_version) }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css', v=asset_version ~ '-theme-palette-8') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/icons.css', v=asset_version) }}">
   <script src="{{ url_for('static', filename='js/icons.js', v=asset_version) }}" defer></script>
-  <script src="{{ url_for('static', filename='js/security.js', v='1') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/security.js', v=asset_version) }}" defer></script>
   <script src="{{ url_for('static', filename='js/jobs.js', v=asset_version) }}" defer></script>
 </head>
 <body class="{{ body_classes }}">
@@ -152,6 +152,7 @@
         {% for theme_id, theme_label in theme_options.items() %}
           <form action="{{ url_for('update_appearance_settings') }}" method="post">
             <input type="hidden" name="appearance_theme" value="{{ theme_id }}">
+            <input type="hidden" name="return_to" value="{{ request.full_path if request.query_string else request.path }}" data-return-to-current-page>
             <button type="submit" class="{% if active_theme == theme_id %}is-active{% endif %}">
               <span>{{ theme_label }}</span>
               {% if active_theme == theme_id %}<small>Активна</small>{% endif %}
