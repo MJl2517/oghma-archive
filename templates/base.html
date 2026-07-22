@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <title>{% block title %}{{ app_name }}{% endblock %}</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/favicon.svg') }}">
+  <link rel="shortcut icon" href="{{ url_for('static', filename='img/ogma-icon.ico') }}">
+  {% if active_page_art_url %}
+    <link rel="preload" as="image" href="{{ active_page_art_url }}" fetchpriority="high">
+  {% endif %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css', v='rule-taxonomy-theme-2') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/icons.css', v='2') }}">
+  <script src="{{ url_for('static', filename='js/icons.js', v='1') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/security.js', v='1') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/jobs.js', v='1') }}" defer></script>
+</head>
+<body class="{{ body_classes }}">
+  <div class="page-shell">
+    <header class="site-header">
+      <a class="brand" href="{{ url_for('index') }}" aria-label="На главную">
+        <span class="brand-mark">
+          <img src="{{ url_for('static', filename='img/ogma-icon.png') }}" alt="" decoding="async">
+        </span>
+        <span>
+          <strong>{{ app_name }}</strong>
+          <small>D&D 5e мастерская</small>
+        </span>
+      </a>
+
+      <div class="header-actions">
+        <nav class="top-nav" aria-label="Главная навигация">
+          {% for item in global_sections %}
+            <a href="{{ url_for('section', slug=item.slug) }}">{{ item.title }}</a>
+          {% endfor %}
+        </nav>
+        {% if favorite_campaign_group %}
+          <div class="favorite-campaign-nav note-reference-group note-reference-group-character" aria-label="Избранный мир">
+            <a class="note-reference-group-label note-reference-group-link" href="{{ favorite_campaign_group.url }}" aria-label="Открыть кампанию {{ favorite_campaign_group.name }}">{{ favorite_campaign_group.name }}</a>
+            {% for favorite_link in favorite_campaign_group.links %}
+              <span class="note-reference-chip note-reference-chip-character">
+                <a href="{{ favorite_link.url }}">{{ favorite_link.title }}</a>
+              </span>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+    </header>
+
+    <main>
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  <aside class="favorites-dock" data-favorites-dock data-favorites-active-group="{{ favorite_panel.active_group_id }}" aria-label="Избранное">
+    <button class="favorites-dock-toggle" type="button" data-favorites-toggle aria-expanded="false" aria-label="Открыть избранное" title="Избранное">★</button>
+    <section class="favorites-panel" data-favorites-panel aria-hidden="true">
+      <div class="favorites-panel-heading">
+        <div>
+          <p class="kicker">Избранное</p>
+          <strong data-favorites-active-title>Закладки</strong>
+        </div>
+        <div class="favorites-panel-actions">
+          <button class="favorites-sort-button" type="button" data-favorites-sort-toggle aria-pressed="false" aria-label="Сортировать избранное" title="Сортировка">↕</button>
+          <button type="button" data-favorites-toggle aria-label="Закрыть избранное">×</button>
+        </div>
+      </div>
+
+      <div class="favorites-accordion" data-favorites-groups>
+        {% for group in favorite_panel.groups %}
+          <details class="favorites-group {% if group.is_active %}is-active{% endif %}" data-favorite-group="{{ group.id }}" {% if group.is_active %}open{% endif %}>
+            <summary>
+              <span class="favorites-drag-handle" aria-hidden="true">↕</span>
+              <span class="favorites-group-arrow" aria-hidden="true">›</span>
+              <strong>{{ group.name }}</strong>
+              <small>{{ group.count }}</small>
+            </summary>
+            <div class="favorites-group-body">
+              <div class="favorites-active-tools">
+                <button class="favorites-sort-button" type="button" data-favorites-items-sort-toggle data-favorite-group-id="{{ group.id }}" aria-pressed="false" aria-label="Сортировать элементы группы" title="Сортировать элементы группы">↕</button>
+                <form class="favorites-rename-form" action="{{ url_for('rename_favorite_group', group_id=group.id) }}" method="post" data-favorite-rename-group-form>
+                  <input name="name" value="{{ group.name }}" aria-label="Название группы">
+                  <button class="favorites-save-button" type="submit" title="Сохранить название" aria-label="Сохранить название">
+                    <span class="favorite-save-icon" aria-hidden="true"></span>
+                  </button>
+                </form>
+                <form action="{{ url_for('delete_favorite_group', group_id=group.id) }}" method="post" data-favorite-delete-group-form>
+                  <button type="submit" title="Удалить группу" aria-label="Удалить группу">×</button>
+                </form>
+              </div>
+              {% if group.categories %}
+                {% for category in group.categories %}
+                  <section class="favorites-category" data-favorites-category="{{ category.type }}">
+                    <h3>{{ category.label }}</h3>
+                    <div>
+                      {% for item in category["items"] %}
+                        <article class="favorite-item {% if item.missing %}is-missing{% endif %}" data-favorite-sort-item data-favorite-type="{{ item.type }}" data-favorite-id="{{ item.id }}" data-favorite-campaign="{{ item.campaign_slug }}">
+                          <span class="favorites-drag-handle favorite-item-drag-handle" aria-hidden="true">↕</span>
+                          <a href="{{ item.url }}" data-favorite-item-link data-favorite-type="{{ item.type }}" data-favorite-id="{{ item.id }}" data-favorite-campaign="{{ item.campaign_slug }}">
+                            <strong>{{ item.title }}</strong>
+                            <small>{{ item.subtitle }}</small>
+                          </a>
+                          <button type="button" data-favorite-remove data-favorite-type="{{ item.type }}" data-favorite-id="{{ item.id }}" data-favorite-campaign="{{ item.campaign_slug }}" data-favorite-group-id="{{ group.id }}" aria-label="Убрать из избранного">×</button>
+                        </article>
+                      {% endfor %}
+                    </div>
+                  </section>
+                {% endfor %}
+              {% else %}
+                <div class="favorites-empty" data-favorites-empty>
+                  <strong>В этой группе пока пусто.</strong>
+                  <span>Откройте карточку и нажмите ★.</span>
+                </div>
+              {% endif %}
+            </div>
+          </details>
+        {% endfor %}
+      </div>
+
+      <form class="favorites-create-form favorites-create-form-bottom" action="{{ url_for('create_favorite_group') }}" method="post" data-favorite-create-group-form>
+        <input name="name" placeholder="Новая группа" autocomplete="off">
+        <button type="submit" aria-label="Создать группу">+ Добавить группу</button>
+      </form>
+    </section>
+  </aside>
+
+  <div class="favorite-picker" data-favorite-picker aria-hidden="true">
+    <div class="favorite-picker-backdrop" data-close-favorite-picker></div>
+    <section class="favorite-picker-dialog" role="dialog" aria-modal="true" aria-label="Выбрать группу избранного">
+      <div class="favorites-panel-heading">
+        <div>
+          <p class="kicker">Избранное</p>
+          <strong data-favorite-picker-title>Добавить в группу</strong>
+        </div>
+        <button type="button" data-close-favorite-picker aria-label="Закрыть выбор группы">×</button>
+      </div>
+      <div class="favorite-picker-groups" data-favorite-picker-groups></div>
+    </section>
+  </div>
+
+  <aside class="quick-actions" aria-label="Быстрые действия">
+    <button class="quick-action-button quick-calendar-button" type="button" data-open-global-session-calendar aria-label="Календарь всех миров" title="Календарь всех миров"><span class="quick-calendar-icon" aria-hidden="true"></span></button>
+    <a class="quick-action-button" href="{{ url_for('settings_page') }}" aria-label="Настройки приложения" title="Настройки приложения">⚙</a>
+    {% if settings.demo.enabled %}
+      <button class="quick-action-button" type="button" data-demo-open aria-label="Открыть режим демонстрации" title="Открыть режим демонстрации"><span class="demo-monitor-icon" aria-hidden="true"></span></button>
+      <button class="quick-action-button quick-action-clear" type="button" data-demo-clear aria-label="Очистить демонстрацию" title="Очистить демонстрацию" hidden>×</button>
+    {% endif %}
+    <details class="quick-theme-menu">
+      <summary class="quick-action-button" aria-label="Сменить цветовую тему" title="Сменить цветовую тему">◐</summary>
+      <div class="quick-theme-popover" aria-label="Цветовая тема">
+        {% for theme_id, theme_label in theme_options.items() %}
+          <form action="{{ url_for('update_appearance_settings') }}" method="post">
+            <input type="hidden" name="appearance_theme" value="{{ theme_id }}">
+            <button type="submit" class="{% if active_theme == theme_id %}is-active{% endif %}">
+              <span>{{ theme_label }}</span>
+              {% if active_theme == theme_id %}<small>Активна</small>{% endif %}
+            </button>
+          </form>
+        {% endfor %}
+      </div>
+    </details>
+  </aside>
+
+  <div class="map-modal session-calendar-modal global-session-calendar-modal" data-global-session-calendar-modal aria-hidden="true">
+    <div class="map-modal-backdrop" data-close-global-session-calendar></div>
+    <section class="map-modal-dialog single-panel-dialog session-calendar-dialog" role="dialog" aria-modal="true" aria-label="Календарь всех миров">
+      <div class="map-modal-form session-calendar-panel">
+        <div class="map-modal-heading">
+          <div>
+            <p class="kicker">Обзор миров</p>
+            <h2>Календарь всех миров</h2>
+          </div>
+          <button type="button" data-close-global-session-calendar aria-label="Закрыть календарь">×</button>
+        </div>
+        <div class="session-calendar-toolbar">
+          <button type="button" data-global-session-calendar-prev aria-label="Предыдущий месяц">‹</button>
+          <strong data-global-session-calendar-month></strong>
+          <button type="button" data-global-session-calendar-next aria-label="Следующий месяц">›</button>
+        </div>
+        <div class="session-calendar-weekdays" aria-hidden="true">
+          <span>Пн</span>
+          <span>Вт</span>
+          <span>Ср</span>
+          <span>Чт</span>
+          <span>Пт</span>
+          <span>Сб</span>
+          <span>Вс</span>
+        </div>
+        <div class="session-calendar-grid" data-global-session-calendar-grid></div>
+        <div class="session-calendar-popover" data-global-session-calendar-popover role="tooltip" hidden></div>
+        <p class="session-calendar-empty" data-global-session-calendar-empty hidden>Сессий с датами во всех мирах пока нет.</p>
+        <div class="global-session-choice" data-global-session-choice hidden>
+          <div class="global-session-choice-heading">
+            <div>
+              <p class="kicker">Несколько игр</p>
+              <strong data-global-session-choice-title></strong>
+            </div>
+            <button type="button" data-close-global-session-choice aria-label="Закрыть выбор сессии">×</button>
+          </div>
+          <div class="global-session-choice-list" data-global-session-choice-list></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script type="application/json" nonce="{{ csp_nonce }}" data-global-session-calendar-events>{{ global_session_calendar_events | tojson }}</script>
+  {% set notification_settings = settings.notifications if settings and settings.notifications is defined else {} %}
+  <aside
+    class="session-reminder-toast"
+    data-session-reminder
+    data-session-reminders-enabled="{{ 'true' if notification_settings.session_reminders_enabled else 'false' }}"
+    data-session-reminder-days="{{ notification_settings.session_reminder_days or 3 }}"
+    data-session-reminder-interval-hours="{{ notification_settings.session_reminder_interval_hours or 12 }}"
+    role="status"
+    aria-live="polite"
+    hidden
+  ></aside>
+
+  {% set spotlight_settings = settings.spotlight if settings and settings.spotlight is defined else {} %}
+  {% set spotlight_materials = spotlight_settings.materials if spotlight_settings and spotlight_settings.materials is defined else [] %}
+  {% set spotlight_campaigns = spotlight_settings.campaigns if spotlight_settings and spotlight_settings.campaigns is defined else [] %}
+  {% set spotlight_campaign_mode = spotlight_settings.campaign_mode if spotlight_settings and spotlight_settings.campaign_mode is defined else "all" %}
+  <div class="spotlight" data-search-modal data-spotlight-materials="{{ spotlight_materials | join(',') }}" data-spotlight-campaigns="{{ spotlight_campaigns | join(',') }}" data-spotlight-campaign-mode="{{ spotlight_campaign_mode }}" data-spotlight-backend="{{ storage_backend }}" aria-hidden="true">
+    <div class="spotlight-backdrop" data-close-search></div>
+    <section class="spotlight-dialog" role="dialog" aria-modal="true" aria-label="Быстрый поиск">
+      <div class="spotlight-input-wrap">
+        <span>⌕</span>
+        <input data-search-input type="search" placeholder="Нажмите тут или Shift + ? для начала поиска" autocomplete="off">
+        <button type="button" data-close-search aria-label="Закрыть поиск">Esc</button>
+      </div>
+
+      <div class="spotlight-results" data-search-results>
+        {% for item in global_sections %}
+          <a class="result-row" href="{{ url_for('section', slug=item.slug) }}" data-result-row data-search-kind="{{ item.slug }}" data-title="{{ item.title }}" data-description="{{ item.description }}" data-terms="{{ item.search_terms | join(' ') }}">
+            <span class="card-icon icon-{{ item.icon }}" aria-hidden="true"></span>
+            <span>
+              <strong>{{ item.title }}</strong>
+              <small>{{ item.description }}</small>
+            </span>
+          </a>
+        {% endfor %}
+
+        {% for rule_item in rule_search_items %}
+          <button class="result-row result-row-button" type="button" data-result-row data-search-kind="rules" data-open-rule-modal="{{ rule_item.id }}" data-title="{{ rule_item.title }}" data-description="{{ rule_item.summary }}" data-terms="правило glossary {{ rule_item.tag }} {{ rule_item.source }}">
+            <span class="card-icon icon-book" aria-hidden="true"></span>
+            <span>
+              <strong>{{ rule_item.title }}</strong>
+              <small>{{ rule_item.tag }} · {{ rule_item.source }}</small>
+            </span>
+          </button>
+        {% endfor %}
+
+        {% for campaign_item in campaigns %}
+          <a class="result-row" href="{{ url_for('campaign_detail', slug=campaign_item.slug) }}" data-result-row data-search-kind="campaigns" data-search-campaign="{{ campaign_item.slug }}" data-title="{{ campaign_item.name }}" data-description="{{ campaign_item.description }}" data-terms="кампейн campaign {{ campaign_item.slug }}">
+            <span class="card-icon icon-archive" aria-hidden="true"></span>
+            <span>
+              <strong>{{ campaign_item.name }}</strong>
+              <small>{{ campaign_item.description or "Кампейн без описания." }}</small>
+            </span>
+          </a>
+        {% endfor %}
+
+        {% for character_item in character_search_items %}
+          <a class="result-row" href="{{ character_item.url }}" data-result-row data-search-kind="characters" data-search-campaign="{{ character_item.campaign_slug }}" data-title="{{ character_item.title }}" data-description="{{ character_item.description }}" data-terms="{{ character_item.terms }}">
+            <span class="card-icon icon-mask" aria-hidden="true"></span>
+            <span>
+              <strong>{{ character_item.title }}</strong>
+              <small>NPC · {{ character_item.description }}</small>
+            </span>
+          </a>
+        {% endfor %}
+
+        {% for map_item in map_search_items %}
+          <a class="result-row" href="{{ map_item.url }}" data-result-row data-search-kind="maps" data-search-campaign="{{ map_item.campaign_slug }}" data-title="{{ map_item.title }}" data-description="{{ map_item.description }}" data-terms="{{ map_item.terms }}">
+            <span class="card-icon icon-map" aria-hidden="true"></span>
+            <span>
+              <strong>{{ map_item.title }}</strong>
+              <small>{{ map_item.description }}</small>
+            </span>
+          </a>
+        {% endfor %}
+
+        {% for scene_item in scene_search_items %}
+          <a class="result-row" href="{{ scene_item.url }}" data-result-row data-search-kind="scenes" data-title="{{ scene_item.title }}" data-description="{{ scene_item.description }}" data-terms="{{ scene_item.terms }}">
+            <span class="card-icon icon-handout" aria-hidden="true"></span>
+            <span>
+              <strong>{{ scene_item.title }}</strong>
+              <small>{{ scene_item.description }}</small>
+            </span>
+          </a>
+        {% endfor %}
+
+        {% for audio_item in audio_search_items %}
+          <a class="result-row" href="{{ audio_item.url }}" data-result-row data-search-kind="audio" data-title="{{ audio_item.title }}" data-description="{{ audio_item.description }}" data-terms="{{ audio_item.terms }}">
+            <span class="card-icon icon-audio" aria-hidden="true"></span>
+            <span>
+              <strong>{{ audio_item.title }}</strong>
+              <small>{{ audio_item.description }}</small>
+            </span>
+          </a>
+        {% endfor %}
+
+        {% for note_item in note_search_items %}
+          <a class="result-row" href="{{ note_item.url }}" data-result-row data-search-kind="notes" data-search-campaign="{{ note_item.campaign_slug }}" data-title="{{ note_item.title }}" data-description="{{ note_item.description }}" data-terms="{{ note_item.terms }}">
+            <span class="card-icon icon-quill" aria-hidden="true"></span>
+            <span>
+              <strong>{{ note_item.title }}</strong>
+              <small>{{ note_item.description }}</small>
+            </span>
+          </a>
+        {% endfor %}
+
+        {% for god_item in god_search_items %}
+          <a class="result-row" href="{{ god_item.url }}" data-result-row data-search-kind="gods" data-search-campaign="{{ god_item.campaign_slug }}" data-title="{{ god_item.title }}" data-description="{{ god_item.description }}" data-terms="{{ god_item.terms }}">
+            <span class="card-icon icon-rune" aria-hidden="true"></span>
+            <span>
+              <strong>{{ god_item.title }}</strong>
+              <small>Божество · {{ god_item.description }}</small>
+            </span>
+          </a>
+        {% endfor %}
+
+        {% for resource_item in resource_search_items %}
+          <a class="result-row" href="{{ resource_item.url }}" data-result-row data-search-kind="resources" data-title="{{ resource_item.title }}" data-description="{{ resource_item.description }}" data-terms="{{ resource_item.terms }}">
+            <span class="card-icon icon-resource" aria-hidden="true"></span>
+            <span>
+              <strong>{{ resource_item.title }}</strong>
+              <small>{{ resource_item.description }}</small>
+            </span>
+          </a>
+        {% endfor %}
+        {% for generator_item in generator_search_items %}
+          <a class="result-row" href="{{ generator_item.url }}" data-result-row data-search-kind="generators" data-title="{{ generator_item.title }}" data-description="{{ generator_item.description }}" data-terms="{{ generator_item.terms }}">
+            <span class="card-icon icon-dice" aria-hidden="true"></span>
+            <span>
+              <strong>{{ generator_item.title }}</strong>
+              <small>{{ generator_item.description }}</small>
+            </span>
+          </a>
+        {% endfor %}
+        <div class="spotlight-empty" data-search-empty>Введите минимум 3 символа.</div>
+      </div>
+    </section>
+  </div>
+
+  <div class="rule-modal spotlight-preview-modal" data-spotlight-preview-modal aria-hidden="true">
+    <div class="rule-modal-backdrop" data-close-spotlight-preview></div>
+    <section class="rule-modal-dialog spotlight-preview-dialog" role="dialog" aria-modal="true" aria-label="Предпросмотр Spotlight">
+      <div class="rule-modal-heading">
+        <div>
+          <p class="kicker" data-spotlight-preview-kicker>Spotlight</p>
+          <h2 data-spotlight-preview-title>Материал</h2>
+          <div class="rule-meta-line" data-spotlight-preview-meta></div>
+        </div>
+        <div class="map-modal-heading-actions">
+          <button class="favorite-toggle-button" type="button" data-favorite-toggle data-favorite-type="rule" data-favorite-id="" data-favorite-title="" aria-label="Добавить правило в избранное" title="Избранное" hidden>☆</button>
+          <button type="button" data-close-spotlight-preview aria-label="Закрыть предпросмотр Spotlight">×</button>
+        </div>
+      </div>
+      <article class="rule-content spotlight-preview-body" data-spotlight-preview-body></article>
+      <p class="spotlight-preview-hint" data-spotlight-preview-hint></p>
+      <div class="spotlight-preview-actions">
+        <a class="map-modal-save" href="#" data-spotlight-preview-page>Открыть страницу</a>
+      </div>
+    </section>
+  </div>
+
+  <aside class="dice-tray" data-dice-tray aria-label="Меню бросков кубов">
+    <button class="dice-fab" type="button" data-dice-toggle aria-expanded="false" aria-label="Открыть броски кубов">
+      <span class="dice-symbol dice-symbol-fab" style="--dice-icon: url('{{ url_for('static', filename='img/dice/d20.svg') }}')" aria-hidden="true"></span>
+    </button>
+
+    <section class="dice-panel" data-dice-panel aria-hidden="true">
+      <div class="dice-panel-heading">
+        <div>
+          <p class="kicker">Кости</p>
+          <strong>Бросок</strong>
+        </div>
+        <button type="button" data-dice-toggle aria-label="Закрыть броски кубов">×</button>
+      </div>
+
+      <label class="dice-expression">
+        Формула
+        <input data-dice-expression value="1d20" autocomplete="off" spellcheck="false">
+      </label>
+
+      <div class="dice-type-grid" aria-label="Тип куба">
+        {% for die in [4, 6, 8, 10, 12, 20, 100] %}
+          <button type="button" data-die="{{ die }}" aria-label="Бросить d{{ die }}">
+            <span class="dice-symbol" style="--dice-icon: url('{{ url_for('static', filename='img/dice/d' ~ die ~ '.svg') }}')" aria-hidden="true"></span>
+            <span>d{{ die }}</span>
+          </button>
+        {% endfor %}
+      </div>
+
+      <div class="dice-advantage" aria-label="Преимущество или помеха">
+        <button type="button" data-advantage="none" class="is-active">Обычный</button>
+        <button type="button" data-advantage="adv">Пре</button>
+        <button type="button" data-advantage="dis">Пом</button>
+      </div>
+
+      <button class="dice-roll-button" type="button" data-roll-dice>Бросок</button>
+
+      <div class="dice-result" data-dice-result>
+        <span>Готов к броску.</span>
+      </div>
+
+      <div class="dice-history-wrap">
+        <div class="dice-history-heading">
+          <strong>История</strong>
+          <button type="button" data-clear-dice-history>Очистить</button>
+        </div>
+        <ol class="dice-history" data-dice-history></ol>
+      </div>
+    </section>
+  </aside>
+
+  <div class="markdown-help-modal rules-reader-side-modal" data-markdown-help-modal aria-hidden="true">
+    <div class="rules-reader-backdrop" data-close-markdown-help></div>
+    <section class="rules-reader-dialog rules-reader-dialog-side rules-reader-help-dialog" role="dialog" aria-modal="true" aria-label="Помощь по Markdown">
+      <div class="rules-reader-heading rules-reader-heading-side">
+        <div>
+          <p class="rules-reader-kicker">Markdown</p>
+          <h2 class="rules-reader-title">Шпаргалка по тексту</h2>
+        </div>
+        <button class="rules-reader-icon" type="button" data-close-markdown-help aria-label="Закрыть помощь по Markdown">×</button>
+      </div>
+      <div class="markdown-help-tabs-shell">
+        <button type="button" class="markdown-help-tabs-arrow" data-markdown-help-tabs-prev aria-label="Предыдущие категории">‹</button>
+        <div class="markdown-help-tabs" aria-label="Категории Markdown" data-markdown-help-tabs>
+          <button type="button" class="is-active" data-markdown-help-filter="all">Все</button>
+          <button type="button" data-markdown-help-filter="text">Текст</button>
+          <button type="button" data-markdown-help-filter="color">Цвет</button>
+          <button type="button" data-markdown-help-filter="table">Таблицы</button>
+          <button type="button" data-markdown-help-filter="link">Ссылки</button>
+          <button type="button" data-markdown-help-filter="other">Разное</button>
+        </div>
+        <button type="button" class="markdown-help-tabs-arrow" data-markdown-help-tabs-next aria-label="Следующие категории">›</button>
+      </div>
+      <div class="markdown-help-grid">
+        {% set markdown_examples = [
+          ("text", "Жирный текст", "Ctrl+B", "**важный текст**"),
+          ("text", "Курсив", "Ctrl+I", "*курсивный текст*"),
+          ("text", "Подчёркивание", "Ctrl+U", "_подчёркнутый текст_"),
+          ("text", "Заголовок", "Ctrl+Alt+H", "## Заголовок материала"),
+          ("color", "Красный акцент", "", "{red|бросок с помехой}"),
+          ("color", "Зелёный акцент", "", "{green|бросок с преимуществом}"),
+          ("color", "Синий акцент", "", "{blue|важная проверка}"),
+          ("link", "Ссылка на правило", "", "[Преимущество | Advantage]"),
+          ("link", "Внешняя ссылка", "Ctrl+K", "[Открыть ресурс](https://example.com)"),
+          ("link", "Вики-метка", "", "[[Имя, место или событие]]"),
+          ("table", "Таблица", "", "| Событие | Итог |\n| --- | --- |\n| Встреча | Союз |"),
+          ("other", "Список", "Ctrl+Alt+L", "- первый пункт\n- второй пункт"),
+          ("other", "Цитата", "Ctrl+Alt+Q", "> важная реплика NPC"),
+          ("other", "Код/термин", "Ctrl+`", "`d20 + модификатор`")
+        ] %}
+        {% for category, title, shortcut, snippet in markdown_examples %}
+          <article class="markdown-help-card" data-markdown-help-category="{{ category }}">
+            <div>
+              <strong>{{ title }}{% if shortcut %} <span>({{ shortcut }})</span>{% endif %}</strong>
+              <code>{{ snippet }}</code>
+            </div>
+            <div class="markdown-help-actions">
+              <button type="button" data-copy-markdown-snippet="{{ snippet }}">Копировать</button>
+              <button type="button" data-insert-markdown-snippet="{{ snippet }}">Вставить</button>
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+
+  <div class="rule-side-modal rules-reader-side-modal" data-rule-side-modal aria-hidden="true">
+    <div class="rules-reader-backdrop" data-close-rule-side></div>
+    <section class="rules-reader-dialog rules-reader-dialog-side" role="dialog" aria-modal="true" aria-label="Правило глоссария">
+      <div class="rules-reader-heading rules-reader-heading-side">
+        <div>
+          <p class="rules-reader-kicker" data-rule-side-kicker>Правило</p>
+          <h2 class="rules-reader-title" data-rule-side-title>Правило</h2>
+          <div class="rules-reader-meta" data-rule-side-meta></div>
+        </div>
+        <button class="rules-reader-icon" type="button" data-close-rule-side aria-label="Закрыть правило">×</button>
+      </div>
+      <article class="rules-reader-content rules-reader-content-side" data-rule-side-content>
+        <p>Загружаю правило...</p>
+      </article>
+    </section>
+  </div>
+
+  <div class="map-modal party-global-modal" data-party-global-modal aria-hidden="true">
+    <div class="map-modal-backdrop" data-close-party-global></div>
+    <section class="map-modal-dialog party-global-dialog" role="dialog" aria-modal="true" aria-label="Сводка группы избранного мира">
+      <div class="party-global-heading">
+        <div>
+          <p class="kicker">Alt + G</p>
+          <h2 data-party-global-title>Сводка группы</h2>
+          <p data-party-global-subtitle>Загружаю группу избранного мира...</p>
+        </div>
+        <button type="button" data-close-party-global aria-label="Закрыть сводку группы">×</button>
+      </div>
+      <div class="party-global-content" data-party-global-content>
+        <section class="empty-state maps-empty"><strong>Загружаю группу...</strong></section>
+      </div>
+    </section>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/search.js', v='spotlight-rule-modal-1') }}"></script>
+  <script src="{{ url_for('static', filename='js/global-session-calendar.js', v='multi-day-choice-1') }}"></script>
+  <script src="{{ url_for('static', filename='js/session-reminders.js', v='1') }}"></script>
+  <script src="{{ url_for('static', filename='js/dice.js', v='2') }}"></script>
+  <script src="{{ url_for('static', filename='js/markdown-help.js', v='rules-reader-rebuild-3') }}"></script>
+  <script src="{{ url_for('static', filename='js/hold-delete.js', v='audio-tag-icons-2') }}"></script>
+  <script src="{{ url_for('static', filename='js/favorites.js', v='7') }}"></script>
+  <script src="{{ url_for('static', filename='js/party-global-summary.js', v='5') }}"></script>
+  {% if settings.demo.enabled %}
+    <script src="{{ url_for('static', filename='js/demo-control.js', v='demo-mode-7') }}"></script>
+  {% endif %}
+  {% block scripts %}{% endblock %}
+</body>
+</html>

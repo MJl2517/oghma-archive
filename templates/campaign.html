@@ -1,0 +1,116 @@
+﻿{% extends "base.html" %}
+
+{% block title %}{{ campaign.name }} - {{ app_name }}{% endblock %}
+
+{% block content %}
+<section class="section-hero campaign-hero {% if campaign.cover_url %}has-campaign-cover{% endif %}"{% if campaign.cover_url %} style="--campaign-cover: url('{{ campaign.cover_url }}')"{% endif %}>
+  <a class="back-link" href="{{ url_for('index') }}">← Главная</a>
+  <div class="campaign-hero-actions">
+    <button class="campaign-edit-toggle" type="button" data-open-campaign-edit aria-label="Редактировать кампейн {{ campaign.name }}">⚙</button>
+    <form class="hero-folder-badge campaign-folder-badge" action="{{ url_for('open_campaign_folder', slug=campaign.slug) }}" method="post" data-local-job-form>
+      <button type="submit">data/campaigns/{{ campaign.slug }}</button>
+    </form>
+  </div>
+  <p class="kicker">Кампейн</p>
+  <div class="campaign-title-row">
+    <h1>{{ campaign.name }}</h1>
+  </div>
+  {% if campaign.system %}
+    <p class="campaign-system-line">Система: <strong>{{ campaign.system }}</strong></p>
+  {% endif %}
+  <div class="campaign-description">
+    {{ render_text_content(campaign.description or "Описание пока не добавлено. Но полки уже подписаны, свечи зажжены, архив ждёт материалов.") }}
+  </div>
+</section>
+
+<div class="map-modal campaign-edit-modal" data-campaign-edit-modal aria-hidden="true">
+  <div class="map-modal-backdrop" data-close-campaign-edit></div>
+  <section class="campaign-settings-dialog" role="dialog" aria-modal="true" aria-label="Правка кампейна {{ campaign.name }}">
+    <form class="campaign-settings-form" action="{{ url_for('update_campaign_route', slug=campaign.slug) }}" method="post" enctype="multipart/form-data">
+      <button class="campaign-settings-close" type="button" data-close-campaign-edit aria-label="Закрыть правку кампейна">×</button>
+      <div class="campaign-settings-heading">
+        <div>
+          <p class="kicker">Правка кампейна</p>
+          <h2>Название и заметки</h2>
+        </div>
+      </div>
+      <div class="campaign-settings-body">
+        <label>
+          Название кампейна
+          <input name="name" value="{{ campaign.name }}" required>
+        </label>
+        <label>
+          Система
+          <input name="system" value="{{ campaign.system or '' }}" placeholder="Например: D&D 5e, Pathfinder 2e, Cairn">
+        </label>
+        <label>
+          Обложка кампейна
+          <span class="campaign-cover-control">
+            {% if campaign.cover_url %}
+              <span class="campaign-cover-preview" style="--campaign-cover: url('{{ campaign.cover_url }}')" aria-hidden="true"></span>
+            {% endif %}
+            <span class="campaign-file-control">
+              <input id="campaign-cover-input" name="cover_image" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/avif" data-campaign-cover-input>
+              <span class="campaign-file-button">Выбрать обложку</span>
+              <span class="campaign-file-name" data-campaign-cover-file>PNG, JPG, WEBP, GIF, AVIF</span>
+            </span>
+            {% if campaign.cover_url %}
+              <label class="campaign-remove-cover">
+                <input name="remove_cover" type="checkbox" value="1">
+                <span>Удалить текущую обложку</span>
+              </label>
+            {% endif %}
+          </span>
+        </label>
+        <label>
+          <span class="markdown-field-title">
+            Заметки
+            <button class="markdown-help-trigger" type="button" data-open-markdown-help title="Подсказка по Markdown">?</button>
+          </span>
+          <textarea name="description" rows="5" placeholder="Тон, сеттинг, партия, текущая арка...">{{ campaign.description }}</textarea>
+        </label>
+      </div>
+      <div class="campaign-settings-footer">
+        <button type="submit">Сохранить кампейн</button>
+      </div>
+    </form>
+  </section>
+</div>
+
+<section class="section-grid campaign-section-grid" aria-label="Разделы кампейна">
+  {% for item in campaign_sections %}
+    <a class="module-card accent-{{ item.accent }}" href="{{ url_for('section', slug=item.slug, campaign=campaign.slug) }}">
+      <span class="card-icon icon-{{ item.icon }}" aria-hidden="true"></span>
+      <span class="card-eyebrow">{{ item.eyebrow }}</span>
+      <strong>{{ item.title }}</strong>
+      <span>{{ item.description }}</span>
+    </a>
+  {% endfor %}
+</section>
+
+<section class="campaign-danger-zone" aria-label="Опасная зона кампейна">
+  <div>
+    <p class="kicker">Опасная зона</p>
+    <strong>Удалить кампейн целиком</strong>
+    <div class="path-copy">
+      <span>Будет удалена папка</span>
+      <form class="path-open-form path-open-form-inline" action="{{ url_for('open_campaign_folder', slug=campaign.slug) }}" method="post" data-local-job-form>
+        <button class="inline-path-button" type="submit">data/campaigns/{{ campaign.slug }}</button>
+      </form>
+      <span>со всеми персонажами, записями и файлами внутри.</span>
+    </div>
+  </div>
+  <form
+    action="{{ url_for('delete_campaign', slug=campaign.slug) }}"
+    method="post"
+  >
+    <button class="danger-button danger-button-compact hold-delete-button" type="button" data-hold-submit style="--hold-progress: 0">
+      <span data-hold-delete-label>Удерживайте, чтобы удалить кампейн</span>
+    </button>
+  </form>
+</section>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{{ url_for('static', filename='js/campaign.js', v='cover-ui-1') }}"></script>
+{% endblock %}

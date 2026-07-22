@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+
+{% macro stat_value(value) %}{{ value|string|replace(".", ",") }}{% endmacro %}
+
+{% block title %}{{ app_name }} - Главная{% endblock %}
+
+{% block content %}
+<section class="command-panel home-command-panel" aria-label="Быстрый поиск">
+  <button class="spotlight-trigger" type="button" data-open-search>
+    <span class="search-glyph">⌕</span>
+    <span class="trigger-copy">
+      <strong>Нажмите тут или Shift + ? для начала поиска</strong>
+    </span>
+    <span class="shortcut">?</span>
+  </button>
+</section>
+
+<section class="hero home-hero" aria-labelledby="hero-title">
+  <div class="hero-copy">
+    {% if has_ogma_logo %}
+      <figure class="hero-logo-panel" aria-label="Логотип Архива Огмы">
+        <img src="{{ url_for('static', filename='img/ogma-logo.png') }}" alt="Архив Огмы" decoding="async">
+      </figure>
+    {% endif %}
+    <p class="kicker">Материалы, заметки и быстрые решения за столом</p>
+    <h1 id="hero-title">Архив Огмы.</h1>
+    <p class="hero-text">
+      Единый командный центр мастера: правила, карты, раздаточные материалы, аудио, ресурсы и хроника кампейнов собраны в одном месте.
+      Архив помогает готовиться быстрее, держать важное под рукой и уверенно вести игру без охоты за файлами между папками.
+    </p>
+  </div>
+
+  <div class="session-card" aria-label="Статус архива">
+    <span class="session-orbit" aria-hidden="true">
+      <span class="session-orbit-ring session-orbit-ring-outer"></span>
+      <span class="session-orbit-ring session-orbit-ring-inner"></span>
+      {% for campaign in campaigns %}
+        {% set orbit_index = loop.index0 %}
+        <span
+          class="session-orbit-track"
+          style="--orbit-radius: {{ 62 + (orbit_index % 4) * 13 }}px; --orbit-duration: {{ 14 + (orbit_index % 5) * 4 + orbit_index }}s; --orbit-delay: -{{ orbit_index * 2.35 }}s; --orbit-start: {{ orbit_index * 137 }}deg; --dot-lightness: {{ 58 + (orbit_index % 6) * 4 }}%; --dot-size: {{ 18 + (orbit_index % 3) * 3 }}px;"
+        >
+          <span class="session-orbit-dot"></span>
+        </span>
+      {% endfor %}
+    </span>
+    <p>Хранилище готово</p>
+    <strong>{{ campaigns | length }} кампейн(ов)</strong>
+    <small>Общий архив: правила, карты, раздат, аудио, генераторы и ресурсы. Кампейны: свои персонажи, хроника сессий и материалы приключения.</small>
+  </div>
+</section>
+
+<section class="section-grid home-section-grid" aria-label="Разделы приложения">
+  {% for item in global_sections %}
+    <a class="module-card accent-{{ item.accent }}" href="{{ url_for('section', slug=item.slug) }}" data-search-card data-title="{{ item.title }}" data-description="{{ item.description }}" data-terms="{{ item.search_terms | join(' ') }}">
+      <span class="card-icon icon-{{ item.icon }}" aria-hidden="true"></span>
+      <span class="card-eyebrow">{{ item.eyebrow }}</span>
+      <strong>{{ item.title }}</strong>
+      <span>{{ item.description }}</span>
+    </a>
+  {% endfor %}
+</section>
+
+<section class="home-stats-panel" aria-label="Статистика архива">
+  <div class="panel-heading">
+    <div>
+      <p class="kicker">Статистика архива</p>
+    </div>
+  </div>
+  <div class="home-stats-grid">
+    <article>
+      <span>Кампейны</span>
+      <strong>{{ global_session_stats.campaign_count }}</strong>
+    </article>
+    <article>
+      <span>Проведено игр</span>
+      <strong>{{ global_session_stats.completed_count }}</strong>
+    </article>
+    <article>
+      <span>Запланировано</span>
+      <strong>{{ global_session_stats.planned_count }}</strong>
+    </article>
+    <article>
+      <span>Частота в месяц</span>
+      <strong>{% if global_session_stats.monthly_frequency %}{{ stat_value(global_session_stats.monthly_frequency) }}{% else %}—{% endif %}</strong>
+    </article>
+    <article>
+      <span>Подготовка</span>
+      <strong>{{ stat_value(global_session_stats.prep_hours) }} ч</strong>
+    </article>
+    <article>
+      <span>За игрой</span>
+      <strong>{{ stat_value(global_session_stats.play_hours) }} ч</strong>
+    </article>
+  </div>
+</section>
+
+<section class="campaigns-panel home-campaigns-panel" aria-labelledby="campaigns-title">
+  <div class="panel-heading">
+    <div>
+      <p class="kicker">Кампейны</p>
+      <h2 id="campaigns-title">Выберите кампейн или создайте новый</h2>
+    </div>
+    <form class="path-open-form path-open-form-compact" action="{{ url_for('open_folder_route') }}" method="post">
+      <input type="hidden" name="folder" value="campaigns">
+      <button class="storage-pill path-open-button" type="submit">data/campaigns</button>
+    </form>
+  </div>
+
+  <div class="campaign-layout">
+    <form class="campaign-form" action="{{ url_for('create_campaign_route') }}" method="post">
+      <label>
+        Название кампейна
+        <input name="name" type="text" placeholder="Например: Тирания драконов" required>
+      </label>
+      <label>
+        Краткое описание
+        <textarea name="description" rows="3" placeholder="Тон, сеттинг, партия, текущая арка..."></textarea>
+      </label>
+      <label>
+        Система
+        <input name="system" type="text" placeholder="Например: D&D 5e, Pathfinder 2e, Cairn">
+      </label>
+      <button type="submit">Создать кампейн</button>
+    </form>
+
+    <div class="campaign-list">
+      {% if campaigns %}
+        {% for campaign in campaigns %}
+          <article class="campaign-card {% if campaign.cover_url %}has-campaign-cover{% endif %}"{% if campaign.cover_url %} style="--campaign-cover: url('{{ campaign.cover_url }}')"{% endif %}>
+            <form class="campaign-favorite-form" action="{{ url_for('update_favorite_campaign_settings') }}" method="post">
+              <input type="hidden" name="campaign_slug" value="{{ '' if favorite_campaign_slug == campaign.slug else campaign.slug }}">
+              <button class="campaign-favorite-button {% if favorite_campaign_slug == campaign.slug %}is-active{% endif %}" type="submit" aria-label="{% if favorite_campaign_slug == campaign.slug %}Снять избранный мир {{ campaign.name }}{% else %}Сделать избранным мир {{ campaign.name }}{% endif %}" title="{% if favorite_campaign_slug == campaign.slug %}Избранный мир{% else %}Сделать избранным{% endif %}">★</button>
+            </form>
+            <a class="campaign-card-link" href="{{ url_for('campaign_detail', slug=campaign.slug) }}">
+              <span>
+                <strong>{{ campaign.name }}</strong>
+                <small>{{ campaign.system or "Система не указана." }}</small>
+                <small>{{ campaign.description or "Описание пока не добавлено." }}</small>
+              </span>
+              <em>Открыть →</em>
+            </a>
+          </article>
+        {% endfor %}
+      {% else %}
+        <div class="empty-state">
+          <strong>Кампейнов пока нет.</strong>
+          <span>Создайте первый, и архив заведет для него отдельные папки.</span>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+<section class="storage-panel home-storage-panel" aria-label="Структура хранения">
+  <div>
+    <p class="kicker">Общее хранилище</p>
+    <form class="storage-open-form" action="{{ url_for('open_folder_route') }}" method="post">
+      <input type="hidden" name="folder" value="shared">
+      <button type="submit">data/shared</button>
+    </form>
+    <span>Материалы, которые могут пригодиться в любой игре: правила, карты, раздат, аудио, генераторы и ресурсы.</span>
+  </div>
+  <div>
+    <p class="kicker">Хранилище кампейнов</p>
+    <form class="storage-open-form" action="{{ url_for('open_folder_route') }}" method="post">
+      <input type="hidden" name="folder" value="campaigns">
+      <button type="submit">data/campaigns</button>
+    </form>
+    <span>У каждого кампейна своя директория с персонажами, хроникой, обложками и личными файлами приключения.</span>
+  </div>
+</section>
+
+{% endblock %}

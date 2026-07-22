@@ -1,0 +1,303 @@
+<div data-maps-dynamic>
+<section class="page-search-panel" aria-label="Поиск {{ media_title_lower }}">
+  <form class="page-search-form character-search-form" action="{{ url_for(page_endpoint) }}" method="get" data-map-filter-form>
+    {% if campaign_slug %}
+      <input type="hidden" name="campaign" value="{{ campaign_slug }}">
+    {% endif %}
+    {% for tag in selected_tags %}
+      <input type="hidden" name="tag" value="{{ tag }}">
+    {% endfor %}
+    {% for tag in excluded_tags %}
+      <input type="hidden" name="exclude_tag" value="{{ tag }}">
+    {% endfor %}
+    <input type="hidden" name="per_page" value="{{ pagination.per_page }}">
+    <input class="page-search-input" type="search" name="q" value="{{ search | default('') }}" placeholder="Поиск {{ media_title_lower }}: минимум 3 символа" autocomplete="off" data-map-search>
+  </form>
+</section>
+
+<section class="map-tools" aria-label="Фильтр {{ media_title_lower }}">
+  <div class="map-tools-heading">
+    <div>
+      <p class="kicker">Теги складываются</p>
+      <strong>Выберите несколько тегов, чтобы найти {{ media_title_accusative }} на пересечении условий</strong>
+    </div>
+    <button class="tag-edit-toggle" type="button" data-toggle-tag-editor aria-expanded="false" title="Редактировать теги">⚙</button>
+  </div>
+
+  <div class="rule-filter-panel map-filter-panel" aria-label="Фильтры тегов {{ media_title_lower }}">
+    <input class="tag-picker-search" type="search" placeholder="Найти тег в фильтрах" data-map-filter-tag-search>
+    <div class="tag-filter-list rule-filter-list" data-tag-filters>
+      {% for tag in tags %}
+        <span class="rule-filter-chip {% if tag in selected_tags %}is-included{% endif %}{% if tag in excluded_tags %} is-excluded{% endif %}" data-map-filter-chip="{{ tag }}">
+          <button type="button" data-map-include-tag="{{ tag }}" aria-label="Показать {{ media_title_accusative }} с тегом {{ tag }}">{{ tag }}</button>
+          <button type="button" data-map-exclude-tag="{{ tag }}" aria-label="Исключить {{ media_title_accusative }} с тегом {{ tag }}">−</button>
+        </span>
+      {% endfor %}
+    </div>
+    <div class="tag-actions">
+      <button class="clear-tags" type="button" data-map-clear-filters>Сбросить фильтры</button>
+      <span class="rule-filter-hint" data-map-filter-hint>Клик по тегу включает фильтр, кнопка − исключает тег из выдачи.</span>
+    </div>
+  </div>
+
+  <div class="tag-actions">
+    <label class="maps-per-page-control">
+      <span>На странице</span>
+      <select data-maps-per-page>
+        {% for option in per_page_options %}
+          <option value="{{ option }}" {% if option == pagination.per_page %}selected{% endif %}>{{ option }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    {% if maps %}
+      <button class="select-mode-toggle" type="button" data-toggle-select-mode aria-expanded="false">Выбрать {{ media_title_accusative }}</button>
+    {% endif %}
+    {% if all_maps_count %}
+      <form class="delete-all-maps-form" action="{{ url_for(delete_all_endpoint) }}" method="post">
+        <input type="hidden" name="scope" value="{{ scope }}">
+        <input type="hidden" name="campaign_slug" value="{{ campaign_slug }}">
+        <button class="danger-button danger-button-compact hold-delete-button" type="button" data-hold-submit style="--hold-progress: 0">
+          <span data-hold-delete-label>{{ delete_all_text }}</span>
+        </button>
+      </form>
+    {% endif %}
+  </div>
+
+</section>
+
+<div class="map-modal audio-taxonomy-modal map-taxonomy-modal" data-map-taxonomy-modal aria-hidden="true">
+  <div class="map-modal-backdrop" data-close-map-taxonomy></div>
+  <section class="map-modal-dialog audio-taxonomy-dialog map-taxonomy-dialog" role="dialog" aria-modal="true" aria-label="Редактировать теги карт">
+    <div class="map-modal-form audio-taxonomy-shell map-taxonomy-shell">
+      <div class="map-modal-heading">
+        <div>
+          <p class="kicker">Карты</p>
+          <h2>Теги карт</h2>
+        </div>
+        <button type="button" data-close-map-taxonomy aria-label="Закрыть редактор тегов">×</button>
+      </div>
+
+      <div class="tag-editor-panel audio-taxonomy-panel" data-tag-editor data-map-tag-rename-url="{{ url_for(rename_tag_endpoint) }}">
+        <div class="audio-taxonomy-pane map-taxonomy-pane is-active">
+          <form class="tag-create-form rule-category-create-form rule-order-create-form audio-category-create-form map-tag-create-form" action="{{ url_for(add_tag_endpoint) }}" method="post" data-map-tag-create-form>
+            <input type="hidden" name="scope" value="{{ scope }}">
+            <input type="hidden" name="campaign_slug" value="{{ campaign_slug }}">
+            <label>
+              Новый тег
+              <input name="tag" placeholder="Например: Вулкан, Таверна, Побережье" required data-map-tag-create-input>
+            </label>
+            <button class="audio-secondary-button" type="submit">Создать тег</button>
+          </form>
+
+          <div class="audio-tag-manager map-tag-manager">
+            <label>
+              Найти тег
+              <input type="search" placeholder="Начните вводить название" data-map-taxonomy-tag-search>
+            </label>
+            <div class="audio-tag-delete-grid rule-tag-order-list" aria-label="Удаление тегов" data-map-tag-order-list>
+              {% for tag in tags if tag not in required_tags %}
+                <form action="{{ url_for(delete_tag_endpoint) }}" method="post" data-map-tag-order-item data-map-tag="{{ tag }}">
+                  <input type="hidden" name="scope" value="{{ scope }}">
+                  <input type="hidden" name="campaign_slug" value="{{ campaign_slug }}">
+                  <input type="hidden" name="tag" value="{{ tag }}">
+                  <div class="audio-tag-row-view" data-map-tag-row-view>
+                    <span>{{ tag }}</span>
+                    <button class="audio-taxonomy-icon-button" type="button" data-map-rename-tag="{{ tag }}" aria-label="Переименовать тег {{ tag }}">
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4 11.5-11.5Z"/></svg>
+                    </button>
+                    <button class="hold-delete-button" type="button" data-hold-submit data-hold-static-icon style="--hold-progress: 0" aria-label="Удалить тег {{ tag }}">
+                      <span data-hold-delete-label>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 15h10l1-15"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                      </span>
+                    </button>
+                  </div>
+                </form>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="map-modal rule-tag-rename-modal" data-map-tag-rename-modal aria-hidden="true">
+  <div class="map-modal-backdrop" data-close-map-tag-rename></div>
+  <section class="map-modal-dialog rule-tag-order-dialog" role="dialog" aria-modal="true" aria-label="Переименовать тег карт">
+    <div class="map-modal-form">
+      <div class="map-modal-heading">
+        <div>
+          <p class="kicker">Переименование тега</p>
+          <h2 data-map-tag-rename-title>Переименовать тег</h2>
+        </div>
+        <button type="button" data-close-map-tag-rename aria-label="Закрыть переименование">×</button>
+      </div>
+      <label>
+        Новое название
+        <input type="text" data-map-rename-input aria-label="Новое название тега">
+      </label>
+      <div class="upload-modal-actions">
+        <button type="button" data-close-map-tag-rename>Отмена</button>
+        <button class="audio-secondary-button map-tag-rename-save-button" type="button" data-map-rename-save>Сохранить</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="map-modal rule-tag-delete-modal" data-map-tag-delete-modal aria-hidden="true">
+  <div class="map-modal-backdrop" data-close-map-tag-delete></div>
+  <section class="map-modal-dialog rule-tag-order-dialog" role="dialog" aria-modal="true" aria-label="Подтвердить удаление тега карт">
+    <div class="map-modal-form">
+      <div class="map-modal-heading">
+        <div>
+          <p class="kicker">Удаление тега</p>
+          <h2 data-map-tag-delete-title>Удалить тег?</h2>
+        </div>
+        <button type="button" data-close-map-tag-delete aria-label="Закрыть подтверждение">×</button>
+      </div>
+      <p class="rule-order-help" data-map-tag-delete-message>{{ media_title }} без других тегов будут перенесены в сервисный тег.</p>
+      <div class="upload-modal-actions rule-delete-confirm-actions">
+        <button type="button" data-close-map-tag-delete>Отмена</button>
+        <button class="danger-button" type="button" data-confirm-map-tag-delete-action>Удалить тег</button>
+      </div>
+    </div>
+  </section>
+</div>
+{% if maps %}
+  <form class="bulk-delete-form" action="{{ url_for(delete_endpoint) }}" method="post" data-bulk-delete-form hidden>
+    <input type="hidden" name="scope" value="{{ scope }}">
+    <input type="hidden" name="campaign_slug" value="{{ campaign_slug }}">
+    <input type="hidden" name="return_page" value="{{ pagination.page }}">
+    <input type="hidden" name="return_per_page" value="{{ pagination.per_page }}">
+    {% for tag in selected_tags %}
+      <input type="hidden" name="return_tag" value="{{ tag }}">
+    {% endfor %}
+    {% for tag in excluded_tags %}
+      <input type="hidden" name="return_exclude_tag" value="{{ tag }}">
+    {% endfor %}
+    <input type="hidden" name="return_search" value="{{ search | default('') }}">
+    <div class="bulk-delete-bar" data-bulk-delete-bar hidden>
+      <strong><span data-selected-count>0</span> выбрано</strong>
+      <button type="button" data-clear-selection>Снять выбор</button>
+      <button class="danger-button hold-delete-button" type="button" data-bulk-delete-button data-hold-submit disabled style="--hold-progress: 0">
+        <span data-hold-delete-label>Удалить выбранные</span>
+      </button>
+    </div>
+    <div data-bulk-delete-inputs></div>
+  </form>
+
+  <section class="maps-board" aria-live="polite" data-maps-board data-media-title-accusative="{{ media_title_accusative }}" data-active-tags="{{ selected_tags | join('||') }}" data-excluded-tags="{{ excluded_tags | join('||') }}" data-service-map-tag="{{ required_tags[0] }}" data-map-scope="{{ scope }}" data-campaign-slug="{{ campaign_slug }}">
+    {% for map in maps %}
+      <article class="map-tile" data-map-tile data-tags="{{ map.tags | join('||') }}">
+        <label class="map-select-check">
+          <input type="checkbox" name="map_ids" value="{{ map.id }}" data-map-select>
+          <span>Выбрать</span>
+        </label>
+        <div class="map-image-wrap">
+          <img src="{{ map.thumbnail_url }}" alt="{{ map.title }}" loading="lazy" decoding="async">
+          <div class="map-hover-actions">
+            {% if settings.demo.enabled %}
+              <button class="map-action-button demo-show-button" type="button" data-demo-show data-demo-kind="{{ 'scene' if page_endpoint == 'scenes_page' else 'map' }}" data-demo-id="{{ map.id }}" data-demo-scope="{{ scope }}" data-demo-campaign="{{ campaign_slug }}" aria-label="Показать {{ map.title }} на экране демонстрации" title="Показать игрокам"><span class="demo-monitor-icon" aria-hidden="true"></span></button>
+            {% endif %}
+            <button class="map-action-button" type="button" data-copy-path data-copy-foundry-path="{{ map.foundry_path }}" data-copy-image-url="{{ url_for(copy_image_endpoint, map_id=map.id) }}" aria-label="Скопировать Foundry-путь {{ map.title }}" title="Скопировать путь для Foundry">⛓</button>
+            <button class="map-action-button" type="button" data-open-map-modal="{{ map.id }}" aria-label="Открыть настройки {{ map.title }}">⚙</button>
+          </div>
+        </div>
+
+        <div class="map-caption">
+          <div>
+            <strong>{{ map.title }}</strong>
+            <span>{{ map.tags | join(" · ") }}</span>
+          </div>
+          <button class="map-action-button map-image-copy-button" type="button" data-copy-map-image data-copy-image-url="{{ url_for(copy_image_endpoint, map_id=map.id) }}" data-browser-image-url="{{ map.url }}" aria-label="Скопировать изображение {{ map.title }}" title="Скопировать изображение">
+            <span class="map-image-copy-icon" aria-hidden="true"></span>
+          </button>
+        </div>
+      </article>
+
+      <div class="map-modal" data-map-modal="{{ map.id }}" aria-hidden="true">
+        <div class="map-modal-backdrop" data-close-map-modal></div>
+        <section class="map-modal-dialog" role="dialog" aria-modal="true" aria-label="Настройки: {{ map.title }}">
+          <div class="map-modal-preview">
+            <img src="{{ map.url }}" alt="{{ map.title }}" loading="lazy" decoding="async">
+          </div>
+          <form class="map-modal-form" action="{{ url_for(update_endpoint, map_id=map.id) }}" method="post" data-map-settings-form>
+            <input type="hidden" name="scope" value="{{ scope }}">
+            <input type="hidden" name="campaign_slug" value="{{ campaign_slug }}">
+            <input type="hidden" name="return_page" value="{{ pagination.page }}">
+            <input type="hidden" name="return_per_page" value="{{ pagination.per_page }}">
+            {% for tag in selected_tags %}
+              <input type="hidden" name="return_tag" value="{{ tag }}">
+            {% endfor %}
+            {% for tag in excluded_tags %}
+              <input type="hidden" name="return_exclude_tag" value="{{ tag }}">
+            {% endfor %}
+            <input type="hidden" name="return_search" value="{{ search | default('') }}">
+            <div class="map-modal-heading">
+              <div>
+                <p class="kicker">Настройка</p>
+                <h2>{{ map.title }}</h2>
+              </div>
+              <button type="button" data-close-map-modal aria-label="Закрыть настройки">×</button>
+            </div>
+            <label>
+              Название
+              <input name="title" value="{{ map.title }}" placeholder="Название">
+            </label>
+            <label>
+              Теги
+              <input name="tags" value="{{ map.tags | join(', ') }}" placeholder="Руины, Леса, Реки">
+            </label>
+            <input class="tag-picker-search" type="search" placeholder="Найти тег" data-map-tag-search>
+            <div class="map-modal-tags">
+              {% for tag in tags %}
+                <button type="button" data-insert-tag="{{ tag }}" {% if tag in required_tags %}data-service-tag="true"{% endif %}>{{ tag }}</button>
+              {% endfor %}
+            </div>
+            <button class="map-modal-save" type="submit">Сохранить настройки</button>
+          </form>
+          <form class="single-delete-form" action="{{ url_for(delete_endpoint) }}" method="post">
+            <input type="hidden" name="scope" value="{{ scope }}">
+            <input type="hidden" name="campaign_slug" value="{{ campaign_slug }}">
+            <input type="hidden" name="return_page" value="{{ pagination.page }}">
+            <input type="hidden" name="return_per_page" value="{{ pagination.per_page }}">
+            {% for tag in selected_tags %}
+              <input type="hidden" name="return_tag" value="{{ tag }}">
+            {% endfor %}
+            {% for tag in excluded_tags %}
+              <input type="hidden" name="return_exclude_tag" value="{{ tag }}">
+            {% endfor %}
+            <input type="hidden" name="return_search" value="{{ search | default('') }}">
+            <input type="hidden" name="map_ids" value="{{ map.id }}">
+            <button class="danger-button hold-delete-button" type="button" data-hold-submit style="--hold-progress: 0">
+              <span data-hold-delete-label>Удалить</span>
+            </button>
+          </form>
+        </section>
+      </div>
+    {% endfor %}
+  </section>
+
+  <nav class="pagination" aria-label="Страницы {{ media_title_lower }}">
+    <span>Показано {{ maps | length }} из {{ pagination.total }} · страница {{ pagination.page }} / {{ pagination.total_pages }}</span>
+    <div>
+      {% if pagination.has_prev %}
+        <a href="{{ url_for(page_endpoint, campaign=campaign_slug, tag=selected_tags, exclude_tag=excluded_tags, q=search, page=pagination.prev_page, per_page=pagination.per_page) if campaign else url_for(page_endpoint, tag=selected_tags, exclude_tag=excluded_tags, q=search, page=pagination.prev_page, per_page=pagination.per_page) }}" data-dynamic-link>← Назад</a>
+      {% else %}
+        <span class="is-disabled">← Назад</span>
+      {% endif %}
+
+      {% if pagination.has_next %}
+        <a href="{{ url_for(page_endpoint, campaign=campaign_slug, tag=selected_tags, exclude_tag=excluded_tags, q=search, page=pagination.next_page, per_page=pagination.per_page) if campaign else url_for(page_endpoint, tag=selected_tags, exclude_tag=excluded_tags, q=search, page=pagination.next_page, per_page=pagination.per_page) }}" data-dynamic-link>Вперёд →</a>
+      {% else %}
+        <span class="is-disabled">Вперёд →</span>
+      {% endif %}
+    </div>
+  </nav>
+{% else %}
+  <section class="empty-state maps-empty">
+    <strong>{{ empty_filtered_title if selected_tags else empty_title }}</strong>
+    <span>{{ "Сбросьте фильтр или выберите другую комбинацию тегов." if selected_tags else "Перетащите изображения в область загрузки выше, и они появятся здесь плиткой." }}</span>
+  </section>
+{% endif %}
+</div>

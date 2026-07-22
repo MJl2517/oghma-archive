@@ -1,0 +1,484 @@
+{% extends "base.html" %}
+
+{% block title %}Глоссарий правил - {{ app_name }}{% endblock %}
+
+{% block content %}
+<button class="scroll-top-zone" type="button" data-scroll-top-zone hidden>↑ К началу глоссария</button>
+
+<section class="rules-hero">
+  <div>
+    <a class="back-link" href="{{ url_for('index') }}">← Главная</a>
+    <p class="kicker">RAW и быстрый поиск</p>
+    <h1>Глоссарий правил</h1>
+    <p class="hero-text">Собирайте правила в компактные карточки, группируйте по редактируемым тегам и открывайте полный текст в модалке прямо за столом.</p>
+  </div>
+
+  <form class="rule-create-form" action="{{ url_for('add_rule') }}" method="post">
+    <p class="kicker">Новое правило</p>
+    <input name="title" placeholder="Название правила" required>
+    <div>
+      <select name="tag">
+        {% for tag in tags %}
+          <option value="{{ tag }}">{{ tag }}</option>
+        {% endfor %}
+      </select>
+      <select name="source">
+        {% for source in sources %}
+          <option value="{{ source }}">{{ source }}</option>
+        {% endfor %}
+      </select>
+      <input name="page" placeholder="стр.">
+    </div>
+    <input name="book_url" placeholder="Ссылка на книгу или ресурс">
+    <span class="markdown-field-title markdown-field-title-inline">
+      <span>Текст правила</span>
+      <button class="markdown-help-trigger" type="button" data-open-markdown-help title="Подсказка по Markdown">?</button>
+    </span>
+    <textarea name="content" rows="4" placeholder="Текст правила. Markdown: **жирный**, *курсив*, _подчёркнутый_, {red|помеха}, {green|преимущество}, [текст | название правила]"></textarea>
+    <button type="submit">Добавить правило</button>
+  </form>
+</section>
+
+<section class="rules-search-panel" aria-label="Поиск по правилам">
+  <button class="spotlight-trigger rules-search-trigger" type="button" data-open-rule-search>
+    <span class="search-glyph">⌕</span>
+    <span class="trigger-copy">
+      <strong>Найти правило в глоссарии</strong>
+      <small>Поиск по названию: укрытие, преимущество, отдых, заклинания...</small>
+    </span>
+    <span class="shortcut">?</span>
+  </button>
+</section>
+
+<section class="rules-tools">
+  <div class="map-tools-heading">
+    <div>
+      <p class="kicker">Категории</p>
+      <strong>Карточки сгруппированы по тегам. Категории можно сворачивать.</strong>
+    </div>
+    <div class="rules-tool-actions">
+      <a class="map-hero-action" href="{{ url_for('export_rules') }}">Экспорт JSON</a>
+      <form class="rule-import-form" action="{{ url_for('import_rules') }}" method="post" enctype="multipart/form-data" data-rule-import-form>
+        <label class="map-hero-action" tabindex="0">
+          Импорт JSON
+          <input type="file" name="rules_file" accept="application/json,.json" data-rule-import-input hidden>
+        </label>
+      </form>
+      <button class="tag-edit-toggle" type="button" data-toggle-rule-tags aria-expanded="false" title="Редактировать теги">⚙</button>
+    </div>
+  </div>
+
+  <div class="rule-filter-panel" aria-label="Фильтры категорий правил">
+    <input class="tag-picker-search" type="search" placeholder="Найти категорию в фильтрах" data-rule-filter-tag-search>
+    <div class="tag-filter-list rule-filter-list" data-rule-filters>
+      {% for tag in tags %}
+        <span class="rule-filter-chip" data-rule-filter-chip="{{ tag }}">
+          <button type="button" data-rule-include-tag="{{ tag }}" aria-label="Показать категорию {{ tag }}">{{ tag }}</button>
+          <button type="button" data-rule-exclude-tag="{{ tag }}" aria-label="Исключить категорию {{ tag }}">−</button>
+        </span>
+      {% endfor %}
+    </div>
+    <div class="tag-actions">
+      <button class="clear-tags" type="button" data-rule-clear-filters>Сбросить фильтры</button>
+      <span class="rule-filter-hint" data-rule-filter-hint>Клик по категории показывает только её. Кнопка − исключает категорию из списка.</span>
+    </div>
+  </div>
+
+  <div class="map-modal audio-taxonomy-modal map-taxonomy-modal rule-taxonomy-modal" data-rule-taxonomy-modal aria-hidden="true">
+    <div class="map-modal-backdrop" data-close-rule-taxonomy></div>
+    <section class="map-modal-dialog audio-taxonomy-dialog map-taxonomy-dialog" role="dialog" aria-modal="true" aria-label="Теги и источники правил">
+      <div class="map-modal-form audio-taxonomy-shell map-taxonomy-shell">
+        <div class="map-modal-heading">
+          <div>
+            <p class="kicker">Правила</p>
+            <h2>Категории и источники</h2>
+          </div>
+          <button type="button" data-close-rule-taxonomy aria-label="Закрыть управление категориями">×</button>
+        </div>
+  <div class="tag-editor-panel audio-taxonomy-panel map-taxonomy-panel" data-rule-tag-editor data-rule-tag-rename-url="{{ url_for('rename_rule_tag') }}" data-rule-source-rename-url="{{ url_for('rename_rule_source') }}">
+    <div class="audio-taxonomy-tabs" role="tablist" aria-label="Раздел управления правилами">
+      <button class="is-active" type="button" role="tab" id="rule-taxonomy-tab-categories" aria-controls="rule-taxonomy-pane-categories" aria-selected="true" data-rule-taxonomy-tab="categories">Категории</button>
+      <button type="button" role="tab" id="rule-taxonomy-tab-sources" aria-controls="rule-taxonomy-pane-sources" aria-selected="false" data-rule-taxonomy-tab="sources">Источники</button>
+    </div>
+
+    <div class="audio-taxonomy-pane map-taxonomy-pane is-active" id="rule-taxonomy-pane-categories" role="tabpanel" aria-labelledby="rule-taxonomy-tab-categories" data-rule-taxonomy-pane="categories">
+      <form class="tag-create-form rule-category-create-form rule-order-create-form" action="{{ url_for('add_rule_tag') }}" method="post" data-rule-tag-create-form>
+        <label>
+          Новая категория
+          <input name="tag" placeholder="Например: Монстры, Ловушки, Отдых" required data-rule-tag-create-input>
+        </label>
+        <button class="audio-secondary-button" type="submit">Создать категорию</button>
+        <button class="rule-order-open-button" type="button" data-open-rule-tag-order aria-label="Упорядочить категории" title="Упорядочить категории">↕</button>
+      </form>
+
+      <div class="audio-tag-manager map-tag-manager">
+        <label>
+          Найти категорию
+          <input type="search" placeholder="Начните вводить название" data-rule-taxonomy-search="categories">
+        </label>
+        <div class="audio-tag-delete-grid map-tag-delete-grid rule-tag-order-list" aria-label="Удаление категорий правил" data-rule-tag-order-list>
+          {% for tag in tags if tag != service_rule_tag %}
+            <form action="{{ url_for('delete_rule_tag') }}" method="post" data-rule-tag-order-item data-rule-tag="{{ tag }}">
+              <input type="hidden" name="tag" value="{{ tag }}">
+              <div class="audio-tag-row-view map-tag-row-view">
+                <span>{{ tag }}</span>
+                <button class="audio-taxonomy-icon-button map-tag-icon-button" type="button" data-open-rule-tag-rename="{{ tag }}" aria-label="Переименовать категорию {{ tag }}">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4 11.5-11.5Z"/></svg>
+                </button>
+                <button class="hold-delete-button" type="button" data-hold-submit data-hold-static-icon style="--hold-progress: 0" aria-label="Удалить категорию {{ tag }}">
+                  <span data-hold-delete-label>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 15h10l1-15"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                  </span>
+                </button>
+              </div>
+            </form>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="audio-taxonomy-pane map-taxonomy-pane" id="rule-taxonomy-pane-sources" role="tabpanel" aria-labelledby="rule-taxonomy-tab-sources" data-rule-taxonomy-pane="sources" hidden>
+      <form class="tag-create-form rule-source-create-form rule-order-create-form" action="{{ url_for('add_rule_source') }}" method="post" data-rule-source-create-form>
+        <label>
+          Новый источник
+          <input name="source" placeholder="Например: DMG, PHB, XGE, Homebrew" required data-rule-source-create-input>
+        </label>
+        <button class="audio-secondary-button" type="submit">Создать источник</button>
+        <button class="rule-order-open-button" type="button" data-open-rule-source-order aria-label="Упорядочить источники" title="Упорядочить источники">↕</button>
+      </form>
+
+      <div class="audio-tag-manager map-tag-manager">
+        <label>
+          Найти источник
+          <input type="search" placeholder="Начните вводить название" data-rule-taxonomy-search="sources">
+        </label>
+        <div class="audio-tag-delete-grid map-tag-delete-grid rule-source-order-list" aria-label="Удаление источников правил" data-rule-source-order-list>
+          {% for source in sources %}
+            <form action="{{ url_for('delete_rule_source') }}" method="post" data-rule-source-order-item data-rule-source="{{ source }}">
+              <input type="hidden" name="source" value="{{ source }}">
+              <div class="audio-tag-row-view map-tag-row-view">
+                <span>{{ source }}</span>
+                <button class="audio-taxonomy-icon-button map-tag-icon-button" type="button" data-open-rule-source-rename="{{ source }}" aria-label="Переименовать источник {{ source }}">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4 11.5-11.5Z"/></svg>
+                </button>
+                <button class="hold-delete-button" type="button" data-hold-submit data-hold-static-icon style="--hold-progress: 0" aria-label="Удалить источник {{ source }}">
+                  <span data-hold-delete-label>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 15h10l1-15"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                  </span>
+                </button>
+              </div>
+            </form>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+      </div>
+    </section>
+  </div>
+</section>
+
+<div class="map-modal rule-tag-order-modal" data-rule-tag-order-modal aria-hidden="true">
+  <div class="map-modal-backdrop" data-close-rule-tag-order></div>
+  <section class="map-modal-dialog rule-tag-order-dialog" role="dialog" aria-modal="true" aria-label="Упорядочить категории правил">
+    <div class="map-modal-form">
+      <div class="map-modal-heading">
+        <div>
+          <p class="kicker">Категории</p>
+          <h2>Упорядочить категории</h2>
+        </div>
+        <button type="button" data-close-rule-tag-order aria-label="Закрыть упорядочивание">×</button>
+      </div>
+      <p class="rule-order-help">Перетащите категории в нужном порядке и нажмите “Сохранить порядок”.</p>
+      <div class="rule-order-list" data-rule-order-modal-list>
+        {% for tag in tags %}
+          {% if tag != service_rule_tag %}
+            <div class="rule-order-item" draggable="true" data-rule-order-modal-item data-rule-tag="{{ tag }}">
+              <span class="rule-order-number" data-rule-order-number>{{ loop.index }}</span>
+              <span class="tag-drag-handle" aria-hidden="true">↕</span>
+              <strong>{{ tag }}</strong>
+            </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+      <div class="upload-modal-actions">
+        <button type="button" data-close-rule-tag-order>Отмена</button>
+        <button type="button" data-save-rule-tag-order>Сохранить порядок</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="map-modal rule-source-order-modal" data-rule-source-order-modal aria-hidden="true">
+  <div class="map-modal-backdrop" data-close-rule-source-order></div>
+  <section class="map-modal-dialog rule-tag-order-dialog" role="dialog" aria-modal="true" aria-label="Упорядочить источники правил">
+    <div class="map-modal-form">
+      <div class="map-modal-heading">
+        <div>
+          <p class="kicker">Источники</p>
+          <h2>Упорядочить источники</h2>
+        </div>
+        <button type="button" data-close-rule-source-order aria-label="Закрыть упорядочивание">×</button>
+      </div>
+      <p class="rule-order-help">Перетащите источники в нужном порядке и нажмите “Сохранить порядок”.</p>
+      <div class="rule-order-list" data-rule-source-order-modal-list>
+        {% for source in sources %}
+          <div class="rule-order-item" draggable="true" data-rule-source-order-modal-item data-rule-source="{{ source }}">
+            <span class="rule-order-number" data-rule-order-number>{{ loop.index }}</span>
+            <span class="tag-drag-handle" aria-hidden="true">↕</span>
+            <strong>{{ source }}</strong>
+          </div>
+        {% endfor %}
+      </div>
+      <div class="upload-modal-actions">
+        <button type="button" data-close-rule-source-order>Отмена</button>
+        <button type="button" data-save-rule-source-order>Сохранить порядок</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="map-modal rule-tag-rename-modal" data-rule-tag-rename-modal aria-hidden="true">
+  <div class="map-modal-backdrop" data-close-rule-tag-rename></div>
+  <section class="map-modal-dialog rule-tag-order-dialog" role="dialog" aria-modal="true" aria-label="Переименовать категорию правил">
+    <div class="map-modal-form">
+      <div class="map-modal-heading">
+        <div>
+          <p class="kicker">Переименование категории</p>
+          <h2 data-rule-tag-rename-title>Переименовать категорию</h2>
+        </div>
+        <button type="button" data-close-rule-tag-rename aria-label="Закрыть переименование">×</button>
+      </div>
+      <label>
+        Новое название
+        <input type="text" data-rule-tag-rename-input aria-label="Новое название категории">
+      </label>
+      <div class="upload-modal-actions">
+        <button type="button" data-close-rule-tag-rename>Отмена</button>
+        <button class="audio-secondary-button map-tag-rename-save-button taxonomy-rename-save-button" type="button" data-save-rule-tag-rename>Сохранить</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="map-modal rule-tag-rename-modal" data-rule-source-rename-modal aria-hidden="true">
+  <div class="map-modal-backdrop" data-close-rule-source-rename></div>
+  <section class="map-modal-dialog rule-tag-order-dialog" role="dialog" aria-modal="true" aria-label="Переименовать источник правил">
+    <div class="map-modal-form">
+      <div class="map-modal-heading">
+        <div>
+          <p class="kicker">Переименование источника</p>
+          <h2 data-rule-source-rename-title>Переименовать источник</h2>
+        </div>
+        <button type="button" data-close-rule-source-rename aria-label="Закрыть переименование">×</button>
+      </div>
+      <label>
+        Новое название
+        <input type="text" data-rule-source-rename-input aria-label="Новое название источника">
+      </label>
+      <div class="upload-modal-actions">
+        <button type="button" data-close-rule-source-rename>Отмена</button>
+        <button class="audio-secondary-button map-tag-rename-save-button taxonomy-rename-save-button" type="button" data-save-rule-source-rename>Сохранить</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="map-modal rule-tag-delete-modal" data-rule-tag-delete-modal aria-hidden="true">
+  <div class="map-modal-backdrop" data-close-rule-tag-delete></div>
+  <section class="map-modal-dialog rule-tag-order-dialog" role="dialog" aria-modal="true" aria-label="Подтвердить удаление категории">
+    <div class="map-modal-form">
+      <div class="map-modal-heading">
+        <div>
+          <p class="kicker">Удаление категории</p>
+          <h2 data-rule-tag-delete-title>Удалить категорию?</h2>
+        </div>
+        <button type="button" data-close-rule-tag-delete aria-label="Закрыть подтверждение">×</button>
+      </div>
+      <p class="rule-order-help" data-rule-tag-delete-message>Правила из этой категории будут перенесены в сервисную категорию.</p>
+      <div class="upload-modal-actions rule-delete-confirm-actions">
+        <button type="button" data-close-rule-tag-delete>Отмена</button>
+        <button class="danger-button" type="button" data-confirm-rule-tag-delete-action>Удалить категорию</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="map-modal rule-source-delete-modal" data-rule-source-delete-modal aria-hidden="true">
+  <div class="map-modal-backdrop" data-close-rule-source-delete></div>
+  <section class="map-modal-dialog rule-tag-order-dialog" role="dialog" aria-modal="true" aria-label="Подтвердить удаление источника">
+    <div class="map-modal-form">
+      <div class="map-modal-heading">
+        <div>
+          <p class="kicker">Удаление источника</p>
+          <h2 data-rule-source-delete-title>Удалить источник?</h2>
+        </div>
+        <button type="button" data-close-rule-source-delete aria-label="Закрыть подтверждение">×</button>
+      </div>
+      <p class="rule-order-help" data-rule-source-delete-message>Правила с этим источником будут перенесены в другой источник.</p>
+      <div class="upload-modal-actions rule-delete-confirm-actions">
+        <button type="button" data-close-rule-source-delete>Отмена</button>
+        <button class="danger-button" type="button" data-confirm-rule-source-delete-action>Удалить источник</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="map-modal rule-delete-modal" data-rule-delete-modal aria-hidden="true">
+  <div class="map-modal-backdrop" data-close-rule-delete></div>
+  <section class="map-modal-dialog rule-tag-order-dialog" role="dialog" aria-modal="true" aria-label="Подтвердить удаление правила">
+    <div class="map-modal-form">
+      <div class="map-modal-heading">
+        <div>
+          <p class="kicker">Удаление правила</p>
+          <h2 data-rule-delete-title>Удалить правило?</h2>
+        </div>
+        <button type="button" data-close-rule-delete aria-label="Закрыть подтверждение">×</button>
+      </div>
+      <p class="rule-order-help" data-rule-delete-message>Правило будет удалено из глоссария. Это действие нельзя отменить.</p>
+      <div class="upload-modal-actions rule-delete-confirm-actions">
+        <button type="button" data-close-rule-delete>Отмена</button>
+        <button class="danger-button" type="button" data-confirm-rule-delete-action>Удалить правило</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<section class="rules-groups" aria-label="Правила по категориям" data-rules-groups data-service-rule-tag="{{ service_rule_tag }}">
+  {% for group in grouped_rules %}
+    <details class="rules-group" data-rule-group data-rule-tag="{{ group.tag }}" open>
+      <summary>
+        <span>{{ group.tag }}</span>
+        <em>{{ group.rules | length }}</em>
+      </summary>
+
+      {% if group.rules %}
+        <div class="rules-card-grid">
+          {% for rule in group.rules %}
+            <article class="rule-card-shell" data-search-card data-title="{{ rule.title }}" data-description="{{ rule_plain_summary(rule.content) }}" data-terms="{{ rule.tag }} {{ rule.source }}">
+              <button class="rule-card" type="button" data-open-rule-modal="{{ rule.id }}" data-rule-card="{{ rule.id }}" title="Клик: открыть правило. Ctrl + клик: открыть с редактированием.">
+                <span class="rule-card-main">
+                  <strong data-rule-card-title>{{ rule.title }}</strong>
+                  <small data-rule-card-tag>{{ rule.tag }}</small>
+                </span>
+                <span class="rule-source-badge" data-rule-card-source>{{ rule.source }}</span>
+              </button>
+              {% if settings.demo.enabled %}
+                <button class="rule-demo-button" type="button" data-demo-show data-demo-kind="rule" data-demo-id="{{ rule.id }}" aria-label="Показать правило {{ rule.title }} на экране демонстрации" title="Показать игрокам"><span class="demo-monitor-icon" aria-hidden="true"></span></button>
+              {% endif %}
+            </article>
+
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-state rules-empty">
+          <strong>В этой категории пока нет правил.</strong>
+          <span>Добавьте новое правило и выберите тег «{{ group.tag }}».</span>
+        </div>
+      {% endif %}
+    </details>
+  {% endfor %}
+</section>
+
+<div class="rule-modal rules-reader-modal" data-rule-modal aria-hidden="true">
+  <div class="rules-reader-backdrop" data-close-rule-modal></div>
+  <section class="rules-reader-dialog" role="dialog" aria-modal="true" aria-label="Правило">
+    <div class="rules-reader-heading">
+      <div>
+        <p class="rules-reader-kicker" data-rule-modal-tag>Правило</p>
+        <h2 class="rules-reader-title" data-rule-modal-title>Правило</h2>
+        <div class="rules-reader-meta">
+          <span class="rules-reader-source" data-rule-modal-source>Источник</span>
+          <span data-rule-modal-page hidden></span>
+          <a href="#" target="_blank" rel="noopener noreferrer" data-rule-modal-book hidden>Открыть оригинал</a>
+        </div>
+      </div>
+      <div class="rules-reader-actions">
+        <button class="rules-reader-icon favorite-toggle-button" type="button" data-favorite-toggle data-favorite-type="rule" data-favorite-id="" data-favorite-title="" aria-label="Добавить правило в избранное" title="Избранное">☆</button>
+        <button class="rules-reader-icon" type="button" data-close-rule-modal aria-label="Закрыть правило">×</button>
+      </div>
+    </div>
+
+    <article class="rules-reader-content" data-rule-content>
+      <p>Загружаю правило...</p>
+    </article>
+
+    <details class="rule-edit-details" data-rule-edit-panel hidden>
+      <summary>Редактировать правило</summary>
+      <form class="rule-edit-form" action="#" method="post">
+        <label>
+          Название
+          <input name="title">
+        </label>
+        <div class="rule-edit-row">
+          <label>
+            Тег
+            <select name="tag">
+              {% for tag in tags %}
+                <option value="{{ tag }}">{{ tag }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>
+            Источник
+            <select name="source">
+              {% for source in sources %}
+                <option value="{{ source }}">{{ source }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>
+            Страница
+            <input name="page">
+          </label>
+        </div>
+        <label>
+          Ссылка на книгу
+          <input name="book_url">
+        </label>
+        <label>
+          <span class="markdown-field-title">
+            Текст правила
+            <button class="markdown-help-trigger" type="button" data-open-markdown-help title="Подсказка по Markdown">?</button>
+          </span>
+          <textarea name="content" rows="8"></textarea>
+        </label>
+        <button type="submit">Сохранить правило</button>
+      </form>
+      <form class="rule-single-delete-form" action="#" method="post" data-rule-delete-form data-rule-title="">
+        <button class="danger-button hold-delete-button" type="button" data-hold-rule-delete style="--hold-progress: 0">
+          <span data-hold-delete-label>Удерживайте, чтобы удалить</span>
+        </button>
+      </form>
+    </details>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+  <div class="spotlight rule-search-modal" data-rule-search-modal aria-hidden="true">
+    <div class="spotlight-backdrop" data-close-rule-search></div>
+    <section class="spotlight-dialog" role="dialog" aria-modal="true" aria-label="Поиск по глоссарию правил">
+      <div class="spotlight-input-wrap">
+        <span>⌕</span>
+        <input data-rule-search-input type="search" placeholder="Введите название правила..." autocomplete="off">
+        <button type="button" data-close-rule-search aria-label="Закрыть поиск">Esc</button>
+      </div>
+
+      <div class="spotlight-results" data-rule-search-results>
+        {% for rule in rules %}
+          <button class="result-row result-row-button" type="button" data-rule-search-row data-open-rule-modal="{{ rule.id }}" data-title="{{ rule.title }}">
+            <span class="card-icon icon-book" aria-hidden="true"></span>
+            <span>
+              <strong>{{ rule.title }}</strong>
+              <small>{{ rule.tag }} · {{ rule.source }}</small>
+            </span>
+          </button>
+        {% endfor %}
+        <div class="spotlight-empty" data-rule-search-empty>Введите минимум 3 символа.</div>
+      </div>
+    </section>
+  </div>
+  <div class="copy-toast" data-rule-toast role="status" aria-live="polite"></div>
+  <script src="{{ url_for('static', filename='js/glossary.js', v='rule-edit-optimized-2') }}"></script>
+{% endblock %}

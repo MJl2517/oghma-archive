@@ -1,0 +1,420 @@
+{% extends "base.html" %}
+
+{% block title %}Аудио - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div data-audio-page data-open-audio-track-id="{{ open_track_id | default('') }}">
+<section class="maps-hero audio-hero">
+  <div>
+    <a class="back-link" href="{{ url_for('index') }}">← Главная</a>
+    <p class="kicker">Музыка и атмосфера</p>
+    <h1>Аудио</h1>
+    <p class="hero-text">Храните треки, эмбиент и YouTube-ссылки для сессий. Категории отвечают за крупную полку, теги помогают быстро найти нужное настроение.</p>
+  </div>
+
+  <form class="upload-dropzone" action="{{ url_for('upload_audio') }}" method="post" enctype="multipart/form-data" data-audio-upload data-audio-ajax-form>
+    {% for tag in selected_tags %}<input type="hidden" name="return_tag" value="{{ tag }}">{% endfor %}
+    {% for tag in excluded_tags %}<input type="hidden" name="return_exclude_tag" value="{{ tag }}">{% endfor %}
+    <input type="hidden" name="return_category" value="{{ selected_category }}">
+    <input type="hidden" name="return_search" value="{{ search }}">
+    <input type="hidden" name="return_page" value="{{ pagination.page }}">
+    <input type="hidden" name="return_per_page" value="{{ pagination.per_page }}">
+    <input id="audio-upload" name="audio" type="file" accept="audio/*,.mp3,.wav,.ogg,.flac,.m4a,.webm,.opus" multiple data-audio-file-input>
+    <label for="audio-upload">
+      <strong>Перетащите аудио сюда</strong>
+      <span>или нажмите, чтобы выбрать несколько треков</span>
+      <em data-audio-file-count>MP3, WAV, OGG, FLAC, M4A, WEBM</em>
+    </label>
+    <select name="category" aria-label="Категория для загрузки">
+      {% for category in categories %}
+        <option value="{{ category }}">{{ category }}</option>
+      {% endfor %}
+    </select>
+    <input name="batch_tags" value="{{ selected_tags | join(', ') }}" placeholder="Теги для пачки: Бой, Страшное" data-audio-upload-tags>
+    <button class="audio-primary-button" type="submit">Загрузить аудио</button>
+  </form>
+</section>
+
+<section class="page-search-panel audio-search-panel" aria-label="Поиск аудио">
+  <form class="audio-filter-row page-search-form" action="{{ url_for('audio_page') }}" method="get" data-audio-filter-form>
+    <input class="page-search-input" type="search" name="q" value="{{ search }}" placeholder="Поиск аудио: минимум 3 символа" autocomplete="off" data-audio-search>
+    <label>
+      Категория
+      <select name="category" data-audio-category-filter>
+        <option value="">Все</option>
+        {% for category in categories %}
+          <option value="{{ category }}" {% if category == selected_category %}selected{% endif %}>{{ category }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    {% for tag in selected_tags %}<input type="hidden" name="tag" value="{{ tag }}">{% endfor %}
+    {% for tag in excluded_tags %}<input type="hidden" name="exclude_tag" value="{{ tag }}">{% endfor %}
+    <label class="maps-per-page-control">
+      На странице
+      <select name="per_page" data-audio-per-page-filter>
+        {% for option in per_page_options %}
+          <option value="{{ option }}" {% if option == pagination.per_page %}selected{% endif %}>{{ option }}</option>
+        {% endfor %}
+      </select>
+    </label>
+  </form>
+</section>
+
+<section class="map-tools audio-tools" aria-label="Фильтры аудио">
+  <div class="map-tools-heading">
+    <div>
+      <p class="kicker">Библиотека звука</p>
+      <strong>Фильтруйте по настроению, категории и названию без перезагрузки страницы</strong>
+    </div>
+    <div class="audio-tool-actions">
+      <button class="audio-primary-button" type="button" data-open-audio-link-modal>Добавить YouTube</button>
+      <button class="tag-edit-toggle" type="button" data-toggle-audio-tags aria-expanded="false" title="Редактировать теги">⚙</button>
+    </div>
+  </div>
+
+  <div class="rule-filter-panel map-filter-panel" aria-label="Фильтры тегов аудио">
+    <input class="tag-picker-search" type="search" placeholder="Найти тег в фильтрах" data-audio-filter-tag-search>
+    <div class="tag-filter-list rule-filter-list" data-audio-tag-filters>
+      {% for tag in tags %}
+        <span class="rule-filter-chip {% if tag in selected_tags %}is-included{% endif %}{% if tag in excluded_tags %} is-excluded{% endif %}" data-audio-filter-chip="{{ tag }}">
+          <button type="button" data-audio-include-tag="{{ tag }}" aria-label="Показать аудио с тегом {{ tag }}">{{ tag }}</button>
+          <button type="button" data-audio-exclude-tag="{{ tag }}" aria-label="Исключить {{ tag }}">−</button>
+        </span>
+      {% endfor %}
+    </div>
+    <div class="tag-actions">
+      <button class="clear-tags" type="button" data-audio-clear-filters>Сбросить фильтры</button>
+      <span class="rule-filter-hint" data-audio-filter-hint>Клик по тегу включает фильтр, кнопка − исключает тег из выдачи.</span>
+    </div>
+  </div>
+
+</section>
+
+  <div class="map-modal audio-taxonomy-modal" data-audio-taxonomy-modal aria-hidden="true">
+    <div class="map-modal-backdrop" data-close-audio-taxonomy></div>
+    <section class="map-modal-dialog audio-taxonomy-dialog" role="dialog" aria-modal="true" aria-label="Управление тегами и категориями аудио">
+      <div class="map-modal-form audio-taxonomy-shell">
+        <div class="map-modal-heading">
+          <div>
+            <p class="kicker">Аудио</p>
+            <h2>Теги и категории</h2>
+          </div>
+          <button type="button" data-close-audio-taxonomy aria-label="Закрыть управление аудио">×</button>
+        </div>
+  <div class="tag-editor-panel audio-taxonomy-panel" data-audio-tag-editor data-audio-tag-rename-url="{{ url_for('rename_audio_tag') }}" data-audio-category-rename-url="{{ url_for('rename_audio_category') }}" data-audio-category-reorder-url="{{ url_for('reorder_audio_categories') }}">
+    <div class="audio-taxonomy-tabs" role="tablist" aria-label="Раздел управления аудио">
+      <button class="is-active" type="button" role="tab" id="audio-taxonomy-tab-tags" aria-controls="audio-taxonomy-pane-tags" aria-selected="true" data-audio-taxonomy-tab="tags">Теги</button>
+      <button type="button" role="tab" id="audio-taxonomy-tab-categories" aria-controls="audio-taxonomy-pane-categories" aria-selected="false" data-audio-taxonomy-tab="categories">Категории</button>
+    </div>
+
+    <div class="audio-taxonomy-pane is-active" id="audio-taxonomy-pane-tags" role="tabpanel" aria-labelledby="audio-taxonomy-tab-tags" data-audio-taxonomy-pane="tags">
+      <form action="{{ url_for('add_audio_tag') }}" method="post" data-audio-tag-create-form>
+        <label>
+          Новый тег
+          <input name="tag" placeholder="Например: Дворец, Погоня" required data-audio-tag-create-input>
+        </label>
+        <button class="audio-secondary-button" type="submit">Создать тег</button>
+      </form>
+      <div class="audio-tag-manager">
+        <label>
+          Найти тег
+          <input type="search" placeholder="Начните вводить название" data-audio-tag-manager-search>
+        </label>
+        <div class="audio-tag-delete-grid" aria-label="Удаление тегов аудио" data-audio-tag-delete-list>
+          {% for tag in tags if tag not in required_tags %}
+            <form action="{{ url_for('delete_audio_tag') }}" method="post" data-audio-tag-delete-form data-audio-tag="{{ tag }}">
+              <input type="hidden" name="tag" value="{{ tag }}">
+              <div class="audio-tag-row-view" data-audio-tag-row-view>
+                <span>{{ tag }}</span>
+                <button class="audio-taxonomy-icon-button" type="button" data-audio-rename-tag="{{ tag }}" aria-label="Переименовать тег {{ tag }}">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4 11.5-11.5Z"/></svg>
+                </button>
+                <button class="hold-delete-button" type="button" data-hold-submit data-hold-static-icon style="--hold-progress: 0" aria-label="Удалить тег {{ tag }}">
+                  <span data-hold-delete-label>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 15h10l1-15"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                  </span>
+                </button>
+              </div>
+            </form>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="audio-taxonomy-pane" id="audio-taxonomy-pane-categories" role="tabpanel" aria-labelledby="audio-taxonomy-tab-categories" data-audio-taxonomy-pane="categories" hidden>
+      <form class="tag-create-form rule-order-create-form audio-category-create-form" action="{{ url_for('add_audio_category') }}" method="post" data-audio-category-create-form>
+        <label>
+          Новая категория
+          <input name="category" placeholder="Например: Боссы">
+        </label>
+        <button class="audio-secondary-button" type="submit">Создать категорию</button>
+        <button class="rule-order-open-button" type="button" data-open-audio-category-order aria-label="Упорядочить категории" title="Упорядочить категории">↕</button>
+      </form>
+      <div class="audio-tag-manager">
+        <label>
+          Найти категорию
+          <input type="search" placeholder="Начните вводить название" data-audio-category-manager-search>
+        </label>
+        <div class="audio-tag-delete-grid" aria-label="Удаление категорий аудио" data-audio-category-delete-list>
+          {% for category in categories %}
+            <form action="{{ url_for('delete_audio_category') }}" method="post" data-audio-category-delete-form data-audio-category="{{ category }}">
+              <input type="hidden" name="category" value="{{ category }}">
+              <div class="audio-tag-row-view" data-audio-category-row-view>
+                <span>{{ category }}</span>
+                <button class="audio-taxonomy-icon-button" type="button" data-audio-rename-category="{{ category }}" aria-label="Переименовать категорию {{ category }}">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4 11.5-11.5Z"/></svg>
+                </button>
+                <button class="hold-delete-button" type="button" data-hold-submit data-hold-static-icon style="--hold-progress: 0" aria-label="Удалить категорию {{ category }}">
+                  <span data-hold-delete-label>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 15h10l1-15"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                  </span>
+                </button>
+              </div>
+              <div class="audio-tag-row-edit" data-audio-category-row-edit hidden>
+                <input type="text" value="{{ category }}" aria-label="Новое название категории {{ category }}" data-audio-category-rename-input>
+                <button class="audio-taxonomy-icon-button is-confirm" type="button" data-audio-category-rename-save aria-label="Сохранить название категории {{ category }}">✓</button>
+                <button class="audio-taxonomy-icon-button" type="button" data-audio-category-rename-cancel aria-label="Отменить переименование категории {{ category }}">×</button>
+              </div>
+            </form>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+      </div>
+    </section>
+  </div>
+
+<div class="map-modal rule-tag-rename-modal" data-audio-tag-rename-modal aria-hidden="true">
+  <div class="map-modal-backdrop" data-close-audio-tag-rename></div>
+  <section class="map-modal-dialog rule-tag-order-dialog" role="dialog" aria-modal="true" aria-label="Переименовать тег аудио">
+    <div class="map-modal-form">
+      <div class="map-modal-heading">
+        <div>
+          <p class="kicker">Переименование тега</p>
+          <h2 data-audio-tag-rename-title>Переименовать тег</h2>
+        </div>
+        <button type="button" data-close-audio-tag-rename aria-label="Закрыть переименование">×</button>
+      </div>
+      <label>
+        Новое название
+        <input type="text" data-audio-rename-input aria-label="Новое название тега">
+      </label>
+      <div class="upload-modal-actions">
+        <button type="button" data-close-audio-tag-rename>Отмена</button>
+        <button class="audio-secondary-button map-tag-rename-save-button taxonomy-rename-save-button" type="button" data-audio-rename-save>Сохранить</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="map-modal rule-tag-order-modal" data-audio-category-order-modal aria-hidden="true">
+  <div class="map-modal-backdrop" data-close-audio-category-order></div>
+  <section class="map-modal-dialog rule-tag-order-dialog" role="dialog" aria-modal="true" aria-label="Упорядочить категории аудио">
+    <div class="map-modal-form">
+      <div class="map-modal-heading">
+        <div>
+          <p class="kicker">Категории</p>
+          <h2>Упорядочить категории</h2>
+        </div>
+        <button type="button" data-close-audio-category-order aria-label="Закрыть упорядочивание">×</button>
+      </div>
+      <p class="rule-order-help">Перетащите категории в нужном порядке и сохраните порядок.</p>
+      <div class="rule-order-list" data-audio-category-order-modal-list>
+        {% for category in categories %}
+          <div class="rule-order-item" draggable="true" data-audio-category-order-modal-item data-audio-category="{{ category }}">
+            <span class="rule-order-number" data-rule-order-number>{{ loop.index }}</span>
+            <span class="tag-drag-handle" aria-hidden="true">↕</span>
+            <strong>{{ category }}</strong>
+          </div>
+        {% endfor %}
+      </div>
+      <div class="upload-modal-actions">
+        <button type="button" data-close-audio-category-order>Отмена</button>
+        <button type="button" data-save-audio-category-order>Сохранить порядок</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="map-modal audio-link-modal" data-audio-link-modal aria-hidden="true">
+  <div class="map-modal-backdrop" data-close-audio-link-modal></div>
+  <section class="map-modal-dialog audio-link-dialog" role="dialog" aria-modal="true" aria-label="Создать YouTube-трек">
+    <form class="map-modal-form audio-link-form" action="{{ url_for('create_audio_link') }}" method="post" data-audio-link-form data-audio-ajax-form>
+      {% for tag in selected_tags %}<input type="hidden" name="return_tag" value="{{ tag }}">{% endfor %}
+      {% for tag in excluded_tags %}<input type="hidden" name="return_exclude_tag" value="{{ tag }}">{% endfor %}
+      <input type="hidden" name="return_category" value="{{ selected_category }}">
+      <input type="hidden" name="return_search" value="{{ search }}">
+      <input type="hidden" name="return_page" value="{{ pagination.page }}">
+      <input type="hidden" name="return_per_page" value="{{ pagination.per_page }}">
+      <input type="hidden" name="tags" value="{{ selected_tags | join(', ') }}" data-audio-modal-tags-input>
+      <div class="map-modal-heading">
+        <div>
+          <p class="kicker">YouTube</p>
+          <h2>Новый трек</h2>
+        </div>
+        <button type="button" data-close-audio-link-modal aria-label="Закрыть">×</button>
+      </div>
+      <label>
+        Название
+        <input name="title" placeholder="Тема боя с некромантом">
+      </label>
+      <label>
+        YouTube ссылка
+        <input name="url" type="url" placeholder="https://www.youtube.com/watch?v=..." required>
+      </label>
+      <label>
+        Категория
+        <select name="category">
+          {% for category in categories %}
+            <option value="{{ category }}">{{ category }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <div class="audio-tag-picker" data-audio-tag-picker>
+        <span>Теги</span>
+        <div>
+          {% for tag in tags if tag not in required_tags %}
+            <button type="button" data-audio-pick-tag="{{ tag }}" class="{% if tag in selected_tags %}is-active{% endif %}">{{ tag }}</button>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="upload-modal-actions">
+        <button type="button" data-close-audio-link-modal>Отмена</button>
+        <button class="audio-primary-button" type="submit">Создать трек</button>
+      </div>
+    </form>
+  </section>
+</div>
+
+{% if tracks %}
+  <form id="audio-delete-form" action="{{ url_for('delete_audio') }}" method="post" data-audio-delete-form data-audio-ajax-form>
+    {% for tag in selected_tags %}<input type="hidden" name="return_tag" value="{{ tag }}">{% endfor %}
+    {% for tag in excluded_tags %}<input type="hidden" name="return_exclude_tag" value="{{ tag }}">{% endfor %}
+    <input type="hidden" name="return_category" value="{{ selected_category }}">
+    <input type="hidden" name="return_search" value="{{ search }}">
+    <input type="hidden" name="return_page" value="{{ pagination.page }}">
+    <input type="hidden" name="return_per_page" value="{{ pagination.per_page }}">
+  </form>
+  <div class="audio-board">
+    {% for track in tracks %}
+      <article class="audio-card">
+        <label class="map-select-check audio-select">
+          <input form="audio-delete-form" type="checkbox" name="track_ids" value="{{ track.id }}">
+          <span>Выбрать</span>
+        </label>
+        {% if track.thumbnail_url %}
+          <img class="audio-card-cover" src="{{ track.thumbnail_url }}" alt="" loading="lazy" decoding="async">
+        {% endif %}
+        <div class="audio-card-main">
+          <p class="kicker">{{ track.category }} · {{ "YouTube" if track.source_type == "youtube" else "Файл" }}</p>
+          <h2>{{ track.title }}</h2>
+          <div class="audio-tags">{{ track.tags | join(" · ") }}</div>
+          {% if track.source_type == "youtube" %}
+            <div class="audio-card-actions">
+              <a class="audio-youtube-link" href="{{ track.url }}" target="_blank" rel="noreferrer">Открыть YouTube</a>
+              <button class="audio-icon-button" type="button" data-copy-audio-url="{{ track.url }}" aria-label="Скопировать ссылку {{ track.title }}" title="Скопировать ссылку">⛓</button>
+            </div>
+          {% else %}
+            <audio controls preload="none" src="{{ track.url }}"></audio>
+            <div class="audio-card-actions">
+              <button class="audio-secondary-button" type="button" data-copy-audio-url="{{ track.url }}">Скопировать ссылку</button>
+            </div>
+          {% endif %}
+        </div>
+        <button class="audio-icon-button audio-edit-button" type="button" data-open-audio-track-modal="{{ track.id }}" aria-label="Редактировать {{ track.title }}" title="Редактировать">✎</button>
+      </article>
+      <div class="map-modal audio-track-modal" data-audio-track-modal="{{ track.id }}" aria-hidden="true">
+        <div class="map-modal-backdrop" data-close-audio-track-modal></div>
+        <section class="map-modal-dialog audio-link-dialog" role="dialog" aria-modal="true" aria-label="Редактировать трек {{ track.title }}">
+          <div class="map-modal-form audio-link-form">
+            <div class="map-modal-heading">
+              <div>
+                <p class="kicker">{{ track.category }} · {{ "YouTube" if track.source_type == "youtube" else "Файл" }}</p>
+                <h2>{{ track.title }}</h2>
+              </div>
+              <div class="map-modal-heading-actions">
+                <button class="favorite-toggle-button" type="button" data-favorite-toggle data-favorite-type="audio" data-favorite-id="{{ track.id }}" data-favorite-title="{{ track.title }}" aria-label="Добавить трек в избранное" title="Избранное">☆</button>
+                <button type="button" data-close-audio-track-modal aria-label="Закрыть">×</button>
+              </div>
+            </div>
+            <form action="{{ url_for('update_audio', track_id=track.id) }}" method="post" data-audio-track-form data-audio-ajax-form>
+            {% for tag in selected_tags %}<input type="hidden" name="return_tag" value="{{ tag }}">{% endfor %}
+            {% for tag in excluded_tags %}<input type="hidden" name="return_exclude_tag" value="{{ tag }}">{% endfor %}
+            <input type="hidden" name="return_category" value="{{ selected_category }}">
+            <input type="hidden" name="return_search" value="{{ search }}">
+            <input type="hidden" name="return_page" value="{{ pagination.page }}">
+            <input type="hidden" name="return_per_page" value="{{ pagination.per_page }}">
+            <input type="hidden" name="tags" value="{{ track.tags | join(', ') }}" data-audio-track-tags-input>
+            <label>Название <input name="title" value="{{ track.title }}"></label>
+            <label>
+              Категория
+              <select name="category">
+                {% for category in categories %}
+                  <option value="{{ category }}" {% if category == track.category %}selected{% endif %}>{{ category }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            {% if track.source_type == "youtube" %}
+              <label>YouTube <input name="url" value="{{ track.url }}"></label>
+            {% endif %}
+            <div class="audio-tag-picker" data-audio-tag-picker>
+              <span>Теги</span>
+              <div>
+                {% for tag in tags if tag not in required_tags %}
+                  <button type="button" data-audio-pick-tag="{{ tag }}" class="{% if tag in track.tags %}is-active{% endif %}">{{ tag }}</button>
+                {% endfor %}
+              </div>
+            </div>
+            <button class="audio-primary-button" type="submit">Сохранить</button>
+          </form>
+            <form action="{{ url_for('delete_audio') }}" method="post" data-audio-track-delete-form data-audio-ajax-form>
+              {% for tag in selected_tags %}<input type="hidden" name="return_tag" value="{{ tag }}">{% endfor %}
+              {% for tag in excluded_tags %}<input type="hidden" name="return_exclude_tag" value="{{ tag }}">{% endfor %}
+              <input type="hidden" name="return_category" value="{{ selected_category }}">
+              <input type="hidden" name="return_search" value="{{ search }}">
+              <input type="hidden" name="return_page" value="{{ pagination.page }}">
+              <input type="hidden" name="return_per_page" value="{{ pagination.per_page }}">
+              <input type="hidden" name="track_ids" value="{{ track.id }}">
+              <button class="danger-button hold-delete-button" type="button" data-hold-audio-delete style="--hold-progress: 0">
+                <span data-hold-delete-label>Удерживайте, чтобы удалить</span>
+              </button>
+            </form>
+          </div>
+        </section>
+      </div>
+    {% endfor %}
+    <div class="bulk-delete-bar audio-delete-bar">
+      <strong><span data-audio-selected-count>0</span> выбрано</strong>
+      <button class="danger-button danger-button-compact hold-delete-button" form="audio-delete-form" type="button" data-hold-audio-bulk-delete style="--hold-progress: 0" disabled>
+        <span data-hold-delete-label>Удерживайте, чтобы удалить выбранные</span>
+      </button>
+    </div>
+  </div>
+  <nav class="pagination audio-pagination" aria-label="Страницы аудио">
+    <span>Показано {{ tracks | length }} из {{ filtered_tracks_count }} · страница {{ pagination.page }} / {{ pagination.total_pages }}</span>
+    <div>
+      {% if pagination.has_prev %}
+        <a href="{{ url_for('audio_page', q=search, category=selected_category, tag=selected_tags, exclude_tag=excluded_tags, page=pagination.prev_page, per_page=pagination.per_page) }}" data-audio-dynamic-link>← Назад</a>
+      {% else %}
+        <span class="is-disabled">← Назад</span>
+      {% endif %}
+
+      {% if pagination.has_next %}
+        <a href="{{ url_for('audio_page', q=search, category=selected_category, tag=selected_tags, exclude_tag=excluded_tags, page=pagination.next_page, per_page=pagination.per_page) }}" data-audio-dynamic-link>Вперёд →</a>
+      {% else %}
+        <span class="is-disabled">Вперёд →</span>
+      {% endif %}
+    </div>
+  </nav>
+{% else %}
+  <div class="empty-state rules-empty">
+    <strong>{% if all_tracks_count %}Нет аудио по выбранным фильтрам.{% else %}Аудио пока нет.{% endif %}</strong>
+    <span>Загрузите файлы или создайте первый YouTube-трек.</span>
+  </div>
+{% endif %}
+</div>
+
+<div class="copy-toast" data-audio-toast role="status" aria-live="polite"></div>
+<script src="{{ url_for('static', filename='js/audio.js', v='audio-tag-rename-modal-1') }}"></script>
+{% endblock %}

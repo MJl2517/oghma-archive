@@ -1,0 +1,164 @@
+(async () => {
+  const DEFAULT_EXPORT_DIR = "ogma-party-export/ильмарен-корона-пепла";
+
+  function safeFileName(name) {
+    return String(name ?? "actor")
+      .trim()
+      .replace(/[\\/:*?"<>|]/g, "_")
+      .replace(/\s+/g, "_")
+      .slice(0, 80);
+  }
+
+  async function ensureFolder(path) {
+    const parts = path.split("/").filter(Boolean);
+    let current = "";
+
+    for (const part of parts) {
+      const next = current ? `${current}/${part}` : part;
+
+      try {
+        await FilePicker.createDirectory("data", next);
+      } catch (_) {
+        // Папка уже существует — это нормально.
+      }
+
+      current = next;
+    }
+  }
+
+  async function uploadJson(path, filename, data) {
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], { type: "application/json" });
+    const file = new File([blob], filename, { type: "application/json" });
+
+    return FilePicker.upload(
+      "data",
+      path,
+      file,
+      { overwrite: true },
+      { notify: false }
+    );
+  }
+
+  async function resolveActorRef(ref) {
+    if (!ref) return null;
+    if (ref.actor) return ref.actor;
+    if (ref.documentName === "Actor") return ref;
+    if (ref instanceof Actor) return ref;
+
+    const id = ref.actorId ?? ref.id ?? ref._id;
+    const uuid = ref.actorUuid ?? ref.uuid;
+
+    if (uuid) {
+      try {
+        const actor = await fromUuid(uuid);
+        if (actor) return actor;
+      } catch (_) {}
+    }
+
+    if (id) return game.actors.get(id) ?? null;
+    return null;
+  }
+
+  async function getMainPartyActors() {
+    const candidates = [];
+
+    if (game.actors?.party) candidates.push(game.actors.party);
+
+    candidates.push(
+      ...game.actors.filter(a =>
+        ["party", "group"].includes(a.type) &&
+        /основ|main|party|группа/i.test(a.name)
+      )
+    );
+
+    candidates.push(...game.actors.filter(a => ["party", "group"].includes(a.type)));
+
+    const party = candidates.find(Boolean);
+    let actors = [];
+
+    if (party) {
+      const rawMembers = [];
+
+      if (party.members instanceof Collection) rawMembers.push(...party.members.contents);
+      else if (Array.isArray(party.members)) rawMembers.push(...party.members);
+
+      const systemMembers = party.system?.members;
+
+      if (Array.isArray(systemMembers)) rawMembers.push(...systemMembers);
+      else if (systemMembers && typeof systemMembers === "object") rawMembers.push(...Object.values(systemMembers));
+
+      for (const member of rawMembers) {
+        const actor = await resolveActorRef(member);
+        if (actor) actors.push(actor);
+      }
+    }
+
+    if (!actors.length) {
+      actors = game.users
+        .filter(u => !u.isGM && u.character)
+        .map(u => u.character);
+    }
+
+    return [...new Map(
+      actors
+        .filter(a => a?.type === "character")
+        .map(a => [a.id, a])
+    ).values()];
+  }
+
+  new Dialog({
+    title: "Экспорт персонажей группы",
+    content: `
+      <div style="background:#181818;color:#f0f0f0;padding:14px;">
+        <label>Папка для экспорта внутри Data</label>
+        <input
+          type="text"
+          name="exportDir"
+          value="${DEFAULT_EXPORT_DIR}"
+          style="width:100%;margin-top:6px;background:#101010;color:#fff;border:1px solid #555;padding:6px;"
+        >
+        <p style="color:#aaa;margin-top:8px;">
+          Пример: ogma-party-export/ильмарен-корона-пепла
+        </p>
+      </div>
+    `,
+    buttons: {
+      export: {
+        label: "Экспортировать",
+        callback: async html => {
+          const exportDir = String(html.find('[name="exportDir"]').val() ?? "")
+            .trim()
+            .replace(/^\/+|\/+$/g, "");
+
+          if (!exportDir) {
+            ui.notifications.warn("Укажи папку для экспорта.");
+            return;
+          }
+
+          const actors = await getMainPartyActors();
+
+          if (!actors.length) {
+            ui.notifications.warn("Не удалось найти персонажей группы.");
+            return;
+          }
+
+          await ensureFolder(exportDir);
+
+          for (const actor of actors) {
+            const filename = `${safeFileName(actor.name)}.json`;
+            const data = actor.toObject();
+
+            await uploadJson(exportDir, filename, data);
+          }
+
+          ui.notifications.info(`Экспортировано персонажей: ${actors.length}. Папка: ${exportDir}`);
+        }
+      },
+      cancel: {
+        label: "Отмена"
+      }
+    },
+    default: "export"
+  }).render(true);
+})();

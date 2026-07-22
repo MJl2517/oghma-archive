@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% set nav_sections = campaign_sections if campaign else global_sections %}
+{% set media_title = media_title | default("Карты") %}
+{% set media_title_lower = media_title_lower | default("карты") %}
+{% set media_title_accusative = media_title_accusative | default("карты") %}
+{% set media_kicker = media_kicker | default("Карты кампейна" if campaign else "Общие карты") %}
+{% set media_hero_text = media_hero_text | default("Загружайте карты пачкой, фильтруйте по нескольким тегам одновременно и кликом копируйте путь к файлу для Foundry VTT. Новые изображения попадают в тег “Неотсортированные”.") %}
+{% set upload_endpoint = upload_endpoint | default("upload_maps") %}
+{% set delete_endpoint = delete_endpoint | default("delete_maps") %}
+{% set delete_all_endpoint = delete_all_endpoint | default("delete_all_maps_route") %}
+{% set add_tag_endpoint = add_tag_endpoint | default("add_map_tag") %}
+{% set delete_tag_endpoint = delete_tag_endpoint | default("delete_map_tag") %}
+{% set rename_tag_endpoint = rename_tag_endpoint | default("rename_map_tag") %}
+{% set update_endpoint = update_endpoint | default("update_map") %}
+{% set copy_image_endpoint = copy_image_endpoint | default("copy_map_image") %}
+{% set page_endpoint = page_endpoint | default("maps_page") %}
+{% set upload_field_name = upload_field_name | default("maps") %}
+{% set upload_input_id = upload_input_id | default("map-upload") %}
+{% set upload_strong = upload_strong | default("Перетащите карты сюда") %}
+{% set upload_button = upload_button | default("Загрузить карты") %}
+{% set delete_all_text = delete_all_text | default("Удалить все карты") %}
+{% set empty_title = empty_title | default("Карт пока нет.") %}
+{% set empty_filtered_title = empty_filtered_title | default("Нет карт с выбранными тегами.") %}
+
+{% block title %}{{ media_title }} - {{ app_name }}{% endblock %}
+
+{% block content %}
+<section class="maps-hero">
+  <div>
+    <a class="back-link" href="{{ url_for('campaign_detail', slug=campaign.slug) if campaign else url_for('index') }}">← {{ campaign.name if campaign else "Главная" }}</a>
+    <p class="kicker">{{ media_kicker }}</p>
+    <h1>{{ media_title }}</h1>
+    <p class="hero-text">{{ media_hero_text }}</p>
+  </div>
+
+  <form class="upload-dropzone" action="{{ url_for(upload_endpoint) }}" method="post" enctype="multipart/form-data" data-dropzone>
+    <input type="hidden" name="scope" value="{{ scope }}">
+    <input type="hidden" name="campaign_slug" value="{{ campaign_slug }}">
+    <input type="hidden" name="batch_tags" value="" data-batch-tags-input>
+    <input type="hidden" name="return_page" value="{{ pagination.page }}">
+    <input type="hidden" name="return_per_page" value="{{ pagination.per_page }}">
+    {% for tag in selected_tags %}
+      <input type="hidden" name="return_tag" value="{{ tag }}">
+    {% endfor %}
+    {% for tag in excluded_tags %}
+      <input type="hidden" name="return_exclude_tag" value="{{ tag }}">
+    {% endfor %}
+    <input type="hidden" name="return_search" value="{{ search | default('') }}">
+    <input type="hidden" name="single_title" value="" data-single-title-input>
+    <input id="{{ upload_input_id }}" name="{{ upload_field_name }}" type="file" accept="image/*" multiple data-file-input>
+    <label for="{{ upload_input_id }}">
+      <strong>{{ upload_strong }}</strong>
+      <span>или нажмите, чтобы выбрать несколько изображений</span>
+      <em data-file-count>PNG, JPG, WEBP, GIF, AVIF</em>
+    </label>
+    <button type="button" data-open-upload-modal>{{ upload_button }}</button>
+  </form>
+</section>
+
+{% include "_maps_dynamic.html" %}
+<div class="maps-loading" data-maps-loading hidden>
+  <span></span>
+  <strong>Ищем {{ media_title_accusative }}...</strong>
+</div>
+
+<div class="upload-modal" data-upload-modal aria-hidden="true">
+  <div class="upload-modal-backdrop" data-close-upload-modal></div>
+  <section class="upload-modal-dialog" role="dialog" aria-modal="true" aria-label="Теги для загружаемых изображений">
+    <div class="map-modal-heading">
+      <div>
+        <p class="kicker" data-upload-mode-kicker>Пакетная загрузка</p>
+        <h2 data-upload-mode-title>Назначьте теги всем выбранным изображениям</h2>
+      </div>
+      <button type="button" data-close-upload-modal aria-label="Закрыть">×</button>
+    </div>
+    <p data-upload-mode-description>Выберите теги, которые будут применены ко всем загружаемым изображениям. Если ничего не выбрать, они попадут в “Неотсортированные”.</p>
+    <label class="upload-single-title" data-upload-single-title-wrap hidden>
+      Название карточки (для одного изображения)
+      <input class="upload-tags-input" type="text" data-upload-single-title placeholder="По умолчанию будет имя файла">
+    </label>
+    <input class="upload-tags-input" type="text" data-upload-tags-text placeholder="Например: Леса, Руины">
+    <input class="tag-picker-search" type="search" placeholder="Найти тег" data-map-tag-search>
+    <div class="map-modal-tags">
+      {% for tag in tags %}
+        {% if tag not in required_tags %}
+          <button type="button" data-upload-tag="{{ tag }}">{{ tag }}</button>
+        {% endif %}
+      {% endfor %}
+    </div>
+    <div class="upload-modal-actions">
+      <button type="button" data-close-upload-modal>Отмена</button>
+      <button type="button" data-confirm-upload>Загрузить с этими тегами</button>
+    </div>
+  </section>
+</div>
+
+<div class="copy-toast" data-copy-toast>Путь скопирован</div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{{ url_for('static', filename='js/maps.js', v='upload-tag-active-1') }}"></script>
+{% endblock %}

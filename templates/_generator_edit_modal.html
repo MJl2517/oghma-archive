@@ -1,0 +1,85 @@
+{% macro generator_return_fields() %}
+  {% for tag in selected_tags %}<input type="hidden" name="return_tag" value="{{ tag }}">{% endfor %}
+  {% for tag in excluded_tags %}<input type="hidden" name="return_exclude_tag" value="{{ tag }}">{% endfor %}
+  <input type="hidden" name="return_category" value="{{ selected_category }}">
+  <input type="hidden" name="return_search" value="{{ search }}">
+  <input type="hidden" name="return_sort" value="{{ sort }}">
+  <input type="hidden" name="return_page" value="{{ pagination.page }}">
+  <input type="hidden" name="return_per_page" value="{{ pagination.per_page }}">
+{% endmacro %}
+
+{% macro generator_editor_rows(rows) %}
+  <div class="generator-table-shell">
+    <div class="generator-table-toolbar">
+      <span data-generator-range-hint>Рабочий диапазон: -</span>
+      <button class="audio-secondary-button" type="button" data-generator-fill-unit-ranges>Распределить значения</button>
+    </div>
+    <div class="generator-row-editor" data-generator-rows>
+      <div class="generator-table-editor-head" aria-hidden="true">
+        <span>Диапазон</span>
+        <span>Результат</span>
+        <span></span>
+      </div>
+      {% for row in rows %}
+        <div class="generator-edit-row" data-generator-edit-row>
+          <input type="hidden" name="row_id" value="{{ row.id }}">
+          <label class="generator-range-field"><span>Диапазон</span><input name="row_range" value="{% if row.min == row.max %}{{ row.min }}{% else %}{{ row.min }}-{{ row.max }}{% endif %}" placeholder="1 или 2-4" required></label>
+          <label class="generator-result-field"><span>Результат</span><textarea name="row_result" rows="2" required>{{ row.result_markdown }}</textarea></label>
+          <button class="audio-icon-button" type="button" data-remove-generator-row aria-label="Удалить строку" title="Удалить">×</button>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+{% endmacro %}
+
+<div class="map-modal generator-edit-modal is-open" data-generator-edit-modal="{{ generator.id }}" aria-hidden="false">
+  <div class="map-modal-backdrop" data-close-generator-edit-modal></div>
+  <section class="map-modal-dialog form-modal-dialog generator-dialog" role="dialog" aria-modal="true" aria-label="Редактировать {{ generator.title }}">
+    <div class="map-modal-form form-modal-form generator-form">
+      <div class="map-modal-heading">
+        <div>
+          <p class="kicker">{{ generator.category }} · {{ generator.dice_expression }}</p>
+          <h2>{{ generator.title }}</h2>
+        </div>
+        <button type="button" data-close-generator-edit-modal aria-label="Закрыть">×</button>
+      </div>
+      <form id="generator-edit-form-{{ generator.id }}" class="form-modal-form generator-form" action="{{ url_for('update_generator', generator_id=generator.id) }}" method="post" data-generator-edit-form data-generator-ajax-form>
+        {{ generator_return_fields() }}
+        <input type="hidden" name="tags" value="{{ generator.tags | join(', ') }}" data-generator-tags-input>
+        <label>Название <input name="title" value="{{ generator.title }}" required></label>
+        <label>Формула <input name="dice_expression" value="{{ generator.dice_expression }}" required></label>
+        <label>
+          Категория
+          <select name="category">
+            {% for category in categories %}
+              <option value="{{ category }}" {% if category == generator.category %}selected{% endif %}>{{ category }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Описание <textarea name="description" rows="2">{{ generator.description }}</textarea></label>
+        <div class="audio-tag-picker" data-generator-tag-picker>
+          <span>Теги</span>
+          <div>
+            {% for tag in tags if tag not in required_tags %}
+              <button type="button" data-generator-pick-tag="{{ tag }}" class="{% if tag in generator.tags %}is-active{% endif %}">{{ tag }}</button>
+            {% endfor %}
+          </div>
+        </div>
+        {{ generator_editor_rows(generator.rows) }}
+      </form>
+      <form id="generator-delete-form-{{ generator.id }}" action="{{ url_for('delete_generators') }}" method="post" data-generator-single-delete-form data-generator-ajax-form hidden>
+        {{ generator_return_fields() }}
+        <input type="hidden" name="generator_ids" value="{{ generator.id }}">
+      </form>
+      <div class="upload-modal-actions generator-sticky-actions">
+        <button class="audio-secondary-button" type="button" data-add-generator-row data-generator-action-form="generator-edit-form-{{ generator.id }}">Добавить строку</button>
+        <button class="audio-secondary-button" type="button" data-open-generator-markdown-import data-generator-action-form="generator-edit-form-{{ generator.id }}">Распарсить таблицу</button>
+        <span class="generator-action-spacer"></span>
+        <button class="danger-button danger-button-compact hold-delete-button" type="button" form="generator-delete-form-{{ generator.id }}" data-hold-generator-delete style="--hold-progress: 0">
+          <span data-hold-delete-label>Удерживайте, чтобы удалить</span>
+        </button>
+        <button class="audio-primary-button" type="submit" form="generator-edit-form-{{ generator.id }}">Сохранить</button>
+      </div>
+    </div>
+  </section>
+</div>

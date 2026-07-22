@@ -1,0 +1,411 @@
+{% extends "base.html" %}
+
+{% block title %}Ресурсы - {{ app_name }}{% endblock %}
+
+{% macro resource_return_fields() %}
+  {% for tag in selected_tags %}<input type="hidden" name="return_tag" value="{{ tag }}">{% endfor %}
+  {% for tag in excluded_tags %}<input type="hidden" name="return_exclude_tag" value="{{ tag }}">{% endfor %}
+  <input type="hidden" name="return_category" value="{{ selected_category }}">
+  <input type="hidden" name="return_type" value="{{ selected_type }}">
+  <input type="hidden" name="return_search" value="{{ search }}">
+  <input type="hidden" name="return_sort" value="{{ sort }}">
+  <input type="hidden" name="return_page" value="{{ pagination.page }}">
+  <input type="hidden" name="return_per_page" value="{{ pagination.per_page }}">
+{% endmacro %}
+
+{% block content %}
+<div data-resources-page data-open-resource-id="{{ open_resource_id | default('') }}">
+<section class="maps-hero resources-hero">
+  <div>
+    <a class="back-link" href="{{ url_for('index') }}">← Главная</a>
+    <p class="kicker">Книги, файлы и ссылки</p>
+    <h1>Ресурсы</h1>
+    <p class="hero-text">Собирайте локальные пути к файлам и полезные страницы в интернете. Категории дают крупную полку, теги и поиск помогают быстро достать нужный справочник за столом.</p>
+  </div>
+
+  <div class="resource-quick-panel">
+    <p class="kicker">Быстрое добавление</p>
+    <button class="audio-primary-button" type="button" data-open-resource-modal data-resource-modal-type="web">Добавить ссылку</button>
+    <button class="audio-secondary-button" type="button" data-open-resource-modal data-resource-modal-type="local">Добавить локальный путь</button>
+  </div>
+</section>
+
+<section class="page-search-panel resource-search-panel" aria-label="Поиск ресурсов">
+  <form class="audio-filter-row resources-filter-row page-search-form" action="{{ url_for('resources_page') }}" method="get" data-resource-filter-form>
+    <label class="page-search-label">
+      Поиск
+      <input class="page-search-input" name="q" value="{{ search }}" placeholder="Название, ссылка, описание, тег..." data-resource-search>
+    </label>
+    <label>
+      Категория
+      <select name="category" data-resource-category-filter>
+        <option value="">Все</option>
+        {% for category in categories %}
+          <option value="{{ category }}" {% if category == selected_category %}selected{% endif %}>{{ category }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      Тип
+      <select name="type" data-resource-type-filter>
+        <option value="">Любой</option>
+        <option value="web" {% if selected_type == "web" %}selected{% endif %}>Интернет</option>
+        <option value="local" {% if selected_type == "local" %}selected{% endif %}>Локальный путь</option>
+      </select>
+    </label>
+    <label>
+      Сортировка
+      <select name="sort" data-resource-sort-filter>
+        {% for value, label in sort_options.items() %}
+          <option value="{{ value }}" {% if value == sort %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      На странице
+      <select name="per_page" data-resource-per-page-filter>
+        {% for option in per_page_options %}
+          <option value="{{ option }}" {% if option == pagination.per_page %}selected{% endif %}>{{ option }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    {% for tag in selected_tags %}<input type="hidden" name="tag" value="{{ tag }}">{% endfor %}
+    {% for tag in excluded_tags %}<input type="hidden" name="exclude_tag" value="{{ tag }}">{% endfor %}
+    <button class="audio-primary-button" type="submit">Применить</button>
+    <button class="audio-secondary-button" type="button" data-resource-clear-filters>Сбросить</button>
+  </form>
+</section>
+
+<section class="map-tools audio-tools resources-tools" aria-label="Фильтры ресурсов">
+  <div class="map-tools-heading">
+    <div>
+      <p class="kicker">Библиотека ресурсов</p>
+      <strong>Фильтруйте по названию, категории, типу, тегам и описанию без перезагрузки страницы</strong>
+    </div>
+    <div class="audio-tool-actions">
+      <button class="audio-primary-button" type="button" data-open-resource-modal data-resource-modal-type="web">Новый ресурс</button>
+      <button class="tag-edit-toggle" type="button" data-toggle-resource-tags aria-expanded="false" title="Редактировать теги">⚙</button>
+    </div>
+  </div>
+
+  <div class="rule-filter-panel map-filter-panel">
+    <div class="tag-filter-list rule-filter-list" data-resource-tag-filters>
+      {% for tag in tags %}
+        <span class="rule-filter-chip {% if tag in selected_tags %}is-included{% endif %}{% if tag in excluded_tags %} is-excluded{% endif %}" data-resource-filter-chip="{{ tag }}">
+          <button type="button" data-resource-include-tag="{{ tag }}" aria-label="Показать ресурсы с тегом {{ tag }}">{{ tag }}</button>
+          <button type="button" data-resource-exclude-tag="{{ tag }}" aria-label="Исключить {{ tag }}">−</button>
+        </span>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="map-modal map-taxonomy-modal audio-taxonomy-modal resource-taxonomy-modal" data-resource-taxonomy-modal aria-hidden="true">
+    <div class="map-modal-backdrop" data-close-resource-taxonomy></div>
+    <section class="map-modal-dialog audio-taxonomy-dialog" role="dialog" aria-modal="true" aria-label="Теги и категории ресурсов">
+      <div class="map-modal-form audio-taxonomy-shell">
+        <div class="map-modal-heading">
+          <div>
+            <p class="kicker">Ресурсы</p>
+            <h2>Теги и категории</h2>
+          </div>
+          <button type="button" data-close-resource-taxonomy aria-label="Закрыть управление ресурсами">×</button>
+        </div>
+        <div class="tag-editor-panel audio-taxonomy-panel" data-resource-tag-editor data-resource-tag-rename-url="{{ url_for('rename_resource_tag') }}" data-resource-category-rename-url="{{ url_for('rename_resource_category') }}">
+          <div class="audio-taxonomy-tabs" role="tablist" aria-label="Раздел управления ресурсами">
+            <button class="is-active" type="button" role="tab" id="resource-taxonomy-tab-tags" aria-controls="resource-taxonomy-pane-tags" aria-selected="true" data-resource-taxonomy-tab="tags">Теги</button>
+            <button type="button" role="tab" id="resource-taxonomy-tab-categories" aria-controls="resource-taxonomy-pane-categories" aria-selected="false" data-resource-taxonomy-tab="categories">Категории</button>
+          </div>
+
+          <div class="audio-taxonomy-pane is-active" id="resource-taxonomy-pane-tags" role="tabpanel" aria-labelledby="resource-taxonomy-tab-tags" data-resource-taxonomy-pane="tags">
+            <form action="{{ url_for('add_resource_tag') }}" method="post" data-resource-tag-create-form>
+              <label>
+                Новый тег
+                <input name="tag" placeholder="Например: Монстры, Таблицы, Магазин" required data-resource-tag-create-input>
+              </label>
+              <button class="audio-secondary-button" type="submit">Создать тег</button>
+            </form>
+            <div class="audio-tag-manager">
+              <label>
+                Найти тег
+                <input type="search" placeholder="Начните вводить название" data-resource-tag-manager-search>
+              </label>
+              <div class="audio-tag-delete-grid" aria-label="Удаление тегов ресурсов" data-resource-tag-delete-list>
+                {% for tag in tags if tag not in required_tags %}
+                  <form action="{{ url_for('delete_resource_tag') }}" method="post" data-resource-tag-delete-form data-resource-tag="{{ tag }}">
+                    <input type="hidden" name="tag" value="{{ tag }}">
+                    <div class="audio-tag-row-view">
+                      <span>{{ tag }}</span>
+                      <button class="audio-taxonomy-icon-button" type="button" data-resource-rename-tag="{{ tag }}" aria-label="Переименовать тег {{ tag }}">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4 11.5-11.5Z"/></svg>
+                      </button>
+                      <button class="hold-delete-button" type="button" data-hold-submit data-hold-static-icon style="--hold-progress: 0" aria-label="Удалить тег {{ tag }}">
+                        <span data-hold-delete-label>
+                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 15h10l1-15"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                        </span>
+                      </button>
+                    </div>
+                  </form>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+
+          <div class="audio-taxonomy-pane" id="resource-taxonomy-pane-categories" role="tabpanel" aria-labelledby="resource-taxonomy-tab-categories" data-resource-taxonomy-pane="categories" hidden>
+            <form action="{{ url_for('add_resource_category') }}" method="post" data-resource-category-create-form>
+              <label>
+                Новая категория
+                <input name="category" placeholder="Например: VTT, Сервисы, Листы">
+              </label>
+              <button class="audio-secondary-button" type="submit">Создать категорию</button>
+            </form>
+            <div class="audio-tag-manager">
+              <label>
+                Найти категорию
+                <input type="search" placeholder="Начните вводить название" data-resource-category-manager-search>
+              </label>
+              <div class="audio-tag-delete-grid" aria-label="Удаление категорий ресурсов" data-resource-category-delete-list>
+                {% for category in categories %}
+                  <form action="{{ url_for('delete_resource_category') }}" method="post" data-resource-category-delete-form data-resource-category="{{ category }}">
+                    <input type="hidden" name="category" value="{{ category }}">
+                    <div class="audio-tag-row-view">
+                      <span>{{ category }}</span>
+                      <button class="audio-taxonomy-icon-button" type="button" data-resource-rename-category="{{ category }}" aria-label="Переименовать категорию {{ category }}">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4 11.5-11.5Z"/></svg>
+                      </button>
+                      <button class="hold-delete-button" type="button" data-hold-submit data-hold-static-icon style="--hold-progress: 0" aria-label="Удалить категорию {{ category }}">
+                        <span data-hold-delete-label>
+                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 15h10l1-15"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                        </span>
+                      </button>
+                    </div>
+                  </form>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</section>
+
+<div class="map-modal rule-tag-rename-modal" data-resource-taxonomy-rename-modal aria-hidden="true">
+  <div class="map-modal-backdrop" data-close-resource-taxonomy-rename></div>
+  <section class="map-modal-dialog rule-tag-order-dialog" role="dialog" aria-modal="true" aria-label="Переименовать тег или категорию ресурса">
+    <div class="map-modal-form">
+      <div class="map-modal-heading">
+        <div>
+          <p class="kicker" data-resource-taxonomy-rename-kicker>Переименование</p>
+          <h2 data-resource-taxonomy-rename-title>Переименовать</h2>
+        </div>
+        <button type="button" data-close-resource-taxonomy-rename aria-label="Закрыть переименование">×</button>
+      </div>
+      <label>
+        Новое название
+        <input type="text" data-resource-taxonomy-rename-input aria-label="Новое название">
+      </label>
+      <div class="upload-modal-actions">
+        <button type="button" data-close-resource-taxonomy-rename>Отмена</button>
+        <button class="audio-secondary-button map-tag-rename-save-button taxonomy-rename-save-button" type="button" data-save-resource-taxonomy-rename>Сохранить</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="map-modal audio-link-modal resource-modal" data-resource-modal aria-hidden="true">
+  <div class="map-modal-backdrop" data-close-resource-modal></div>
+  <section class="map-modal-dialog audio-link-dialog resource-dialog" role="dialog" aria-modal="true" aria-label="Создать ресурс">
+    <form class="map-modal-form audio-link-form resource-form" action="{{ url_for('create_resource') }}" method="post" data-resource-form data-resource-ajax-form>
+      {{ resource_return_fields() }}
+      <input type="hidden" name="source_type" value="web" data-resource-modal-source-type>
+      <input type="hidden" name="tags" value="{{ selected_tags | join(', ') }}" data-resource-modal-tags-input>
+      <div class="map-modal-heading">
+        <div>
+          <p class="kicker" data-resource-modal-kicker>Интернет</p>
+          <h2 data-resource-modal-title>Новый ресурс</h2>
+        </div>
+        <button type="button" data-close-resource-modal aria-label="Закрыть">×</button>
+      </div>
+      <label>
+        Название
+        <input name="title" placeholder="Например: D&D Basic Rules">
+      </label>
+      <label data-resource-web-field>
+        Ссылка
+        <input name="url" type="url" placeholder="https://example.com">
+      </label>
+      <label data-resource-local-field hidden>
+        Локальный путь
+        <span class="resource-path-row">
+          <input data-resource-path-display placeholder="Файл не выбран" readonly>
+          <input type="hidden" name="file_capability">
+          <button class="settings-icon-button" type="button" data-pick-resource-file aria-label="Выбрать файл" title="Выбрать файл">📁</button>
+        </span>
+      </label>
+      <label>
+        Категория
+        <select name="category">
+          {% for category in categories %}
+            <option value="{{ category }}">{{ category }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        Описание
+        <textarea name="description" rows="3" placeholder="Зачем нужен этот ресурс, что внутри, когда открывать..."></textarea>
+      </label>
+      <div class="audio-tag-picker" data-resource-tag-picker>
+        <span>Теги</span>
+        <input class="resource-tag-picker-search" type="search" placeholder="Найти тег" data-resource-tag-picker-search>
+        <div class="resource-tag-picker-list">
+          {% for tag in tags if tag not in required_tags %}
+            <button type="button" data-resource-pick-tag="{{ tag }}" class="{% if tag in selected_tags %}is-active{% endif %}">{{ tag }}</button>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="upload-modal-actions">
+        <button type="button" data-close-resource-modal>Отмена</button>
+        <button class="audio-primary-button" type="submit">Создать ресурс</button>
+      </div>
+    </form>
+  </section>
+</div>
+
+{% if resources %}
+  <form id="resource-delete-form" action="{{ url_for('delete_resources') }}" method="post" data-resource-delete-form data-resource-ajax-form>
+    {{ resource_return_fields() }}
+  </form>
+  <div class="audio-board resources-board">
+    {% for resource in resources %}
+      <article class="audio-card resource-card {% if resource.source_type == 'local' and not resource.exists %}is-missing{% endif %}">
+        <div class="resource-card-action-rail">
+          <label class="map-select-check audio-select">
+            <input form="resource-delete-form" type="checkbox" name="resource_ids" value="{{ resource.id }}">
+            <span>Выбрать</span>
+          </label>
+          <button class="audio-icon-button audio-edit-button resource-edit-button" type="button" data-open-resource-edit-modal="{{ resource.id }}" aria-label="Редактировать {{ resource.title }}" title="Редактировать">✎</button>
+        </div>
+        <div class="audio-card-main resource-card-main">
+          <p class="kicker">{{ resource.category }} · {{ resource.type_label }}</p>
+          <h2>{{ resource.title }}</h2>
+          {% if resource.description %}
+            <p class="resource-description">{{ resource.description }}</p>
+          {% endif %}
+          <div class="audio-tags">{{ resource.tags | join(" · ") }}</div>
+          <code class="resource-target">{{ resource.target }}</code>
+          {% if resource.source_type == "local" and not resource.exists %}
+            <span class="resource-warning">Файл не найден по этому пути</span>
+          {% endif %}
+          <div class="audio-card-actions">
+            {% if resource.source_type == "web" and resource.url_is_safe %}
+              <a class="audio-youtube-link" href="{{ resource.url }}" target="_blank" rel="noopener noreferrer">Открыть ссылку</a>
+            {% elif resource.source_type == "web" %}
+              <button class="audio-primary-button" type="button" disabled>Небезопасная ссылка</button>
+            {% else %}
+              {% if resource.exists %}
+                <a class="audio-primary-button" href="{{ url_for('serve_resource_file', resource_id=resource.id) }}" target="_blank" rel="noopener noreferrer">Скачать файл</a>
+              {% else %}
+                <button class="audio-primary-button" type="button" disabled>Открыть файл</button>
+              {% endif %}
+            {% endif %}
+            <button class="audio-secondary-button" type="button" data-copy-resource-target="{{ resource.target }}">Скопировать</button>
+          </div>
+        </div>
+      </article>
+
+      <div class="map-modal audio-track-modal resource-edit-modal" data-resource-edit-modal="{{ resource.id }}" aria-hidden="true">
+        <div class="map-modal-backdrop" data-close-resource-edit-modal></div>
+        <section class="map-modal-dialog audio-link-dialog resource-dialog" role="dialog" aria-modal="true" aria-label="Редактировать ресурс {{ resource.title }}">
+          <div class="map-modal-form audio-link-form resource-form">
+            <div class="map-modal-heading">
+              <div>
+                <p class="kicker">{{ resource.category }} · {{ resource.type_label }}</p>
+                <h2>{{ resource.title }}</h2>
+              </div>
+              <div class="map-modal-heading-actions">
+                <button class="favorite-toggle-button" type="button" data-favorite-toggle data-favorite-type="resource" data-favorite-id="{{ resource.id }}" data-favorite-title="{{ resource.title }}" aria-label="Добавить ресурс в избранное" title="Избранное">☆</button>
+                <button type="button" data-close-resource-edit-modal aria-label="Закрыть">×</button>
+              </div>
+            </div>
+            <form action="{{ url_for('update_resource', resource_id=resource.id) }}" method="post" data-resource-edit-form data-resource-ajax-form>
+              {{ resource_return_fields() }}
+              <input type="hidden" name="source_type" value="{{ resource.source_type }}">
+              <input type="hidden" name="tags" value="{{ resource.tags | join(', ') }}" data-resource-track-tags-input>
+              <label>Название <input name="title" value="{{ resource.title }}"></label>
+              {% if resource.source_type == "web" %}
+                <label>Ссылка <input name="url" type="url" value="{{ resource.url }}"></label>
+              {% else %}
+                <label>
+                  Локальный путь
+                  <span class="resource-path-row">
+                    <input data-resource-path-display value="{{ resource.path_display }}" readonly>
+                    <input type="hidden" name="file_capability">
+                    <button class="settings-icon-button" type="button" data-pick-resource-file aria-label="Выбрать файл" title="Выбрать файл">📁</button>
+                  </span>
+                </label>
+              {% endif %}
+              <label>
+                Категория
+                <select name="category">
+                  {% for category in categories %}
+                    <option value="{{ category }}" {% if category == resource.category %}selected{% endif %}>{{ category }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+              <label>Описание <textarea name="description" rows="3">{{ resource.description }}</textarea></label>
+              <div class="audio-tag-picker" data-resource-tag-picker>
+                <span>Теги</span>
+                <input class="resource-tag-picker-search" type="search" placeholder="Найти тег" data-resource-tag-picker-search>
+                <div class="resource-tag-picker-list">
+                  {% for tag in tags if tag not in required_tags %}
+                    <button type="button" data-resource-pick-tag="{{ tag }}" class="{% if tag in resource.tags %}is-active{% endif %}">{{ tag }}</button>
+                  {% endfor %}
+                </div>
+              </div>
+              <button class="audio-primary-button" type="submit">Сохранить</button>
+            </form>
+            <form action="{{ url_for('delete_resources') }}" method="post" data-resource-single-delete-form data-resource-ajax-form>
+              {{ resource_return_fields() }}
+              <input type="hidden" name="resource_ids" value="{{ resource.id }}">
+              <button class="danger-button hold-delete-button" type="button" data-hold-resource-delete style="--hold-progress: 0">
+                <span data-hold-delete-label>Удерживайте, чтобы удалить</span>
+              </button>
+            </form>
+          </div>
+        </section>
+      </div>
+    {% endfor %}
+    <div class="bulk-delete-bar audio-delete-bar">
+      <strong><span data-resource-selected-count>0</span> выбрано</strong>
+      <button class="danger-button danger-button-compact hold-delete-button" form="resource-delete-form" type="button" data-hold-resource-bulk-delete style="--hold-progress: 0" disabled>
+        <span data-hold-delete-label>Удерживайте, чтобы удалить выбранные</span>
+      </button>
+    </div>
+  </div>
+  <nav class="pagination resources-pagination" aria-label="Страницы ресурсов">
+    <span>Показано {{ resources | length }} из {{ filtered_resources_count }} · страница {{ pagination.page }} / {{ pagination.total_pages }}</span>
+    <div>
+      {% if pagination.has_prev %}
+        <a href="{{ url_for('resources_page', q=search, category=selected_category, type=selected_type, sort=sort, tag=selected_tags, exclude_tag=excluded_tags, page=pagination.prev_page, per_page=pagination.per_page) }}" data-resource-dynamic-link>← Назад</a>
+      {% else %}
+        <span class="is-disabled">← Назад</span>
+      {% endif %}
+
+      {% if pagination.has_next %}
+        <a href="{{ url_for('resources_page', q=search, category=selected_category, type=selected_type, sort=sort, tag=selected_tags, exclude_tag=excluded_tags, page=pagination.next_page, per_page=pagination.per_page) }}" data-resource-dynamic-link>Вперёд →</a>
+      {% else %}
+        <span class="is-disabled">Вперёд →</span>
+      {% endif %}
+    </div>
+  </nav>
+{% else %}
+  <div class="empty-state rules-empty">
+    <strong>{% if all_resources_count %}Нет ресурсов по выбранным фильтрам.{% else %}Ресурсов пока нет.{% endif %}</strong>
+    <span>Добавьте интернет-ссылку или локальный путь к файлу, чтобы собрать справочники в одном месте.</span>
+  </div>
+{% endif %}
+</div>
+
+<div class="copy-toast" data-resource-toast role="status" aria-live="polite"></div>
+<script src="{{ url_for('static', filename='js/resources.js', v='resource-taxonomy-modal-1') }}"></script>
+{% endblock %}

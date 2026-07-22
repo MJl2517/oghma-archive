@@ -1,0 +1,662 @@
+{% extends "base.html" %}
+
+{% set nav_sections = campaign_sections %}
+
+{% macro return_state() %}
+  {% for tag in selected_tags %}<input type="hidden" name="return_tag" value="{{ tag }}">{% endfor %}
+  {% for tag in excluded_tags %}<input type="hidden" name="return_exclude_tag" value="{{ tag }}">{% endfor %}
+  <input type="hidden" name="return_search" value="{{ search }}">
+  <input type="hidden" name="return_status" value="{{ selected_status }}">
+  <input type="hidden" name="return_sort" value="{{ selected_sort }}">
+  <input type="hidden" name="return_ref" value="{{ reference_filter }}">
+  <input type="hidden" name="return_date_from" value="{{ date_from }}">
+  <input type="hidden" name="return_date_to" value="{{ date_to }}">
+{% endmacro %}
+
+{% macro session_label(session) %}{{ "Нулевая сессия" if session.session_number == 0 else "Сессия " ~ session.session_number }}{% endmacro %}
+
+{% macro hours_value(value) %}{{ value|string|replace(".", ",") }}{% endmacro %}
+
+{% macro session_hours_meta(session) %}
+  {% if session.prep_hours or session.play_hours %}
+    <span class="session-hours-meta">
+      {% if session.prep_hours %}<em>Подготовка: {{ hours_value(session.prep_hours) }} ч</em>{% endif %}
+      {% if session.play_hours %}<em>Игра: {{ hours_value(session.play_hours) }} ч</em>{% endif %}
+    </span>
+  {% endif %}
+{% endmacro %}
+
+{% macro reference_options_content() %}
+  {% for group, options in reference_options | groupby("group") %}
+    <div class="note-reference-option-group" data-reference-result-group>
+      <p>{{ group }}</p>
+      {% for option in options %}
+        <button
+          class="result-row result-row-button session-reference-result session-reference-result-{{ option.type }}"
+          type="button"
+          data-add-note-reference
+          data-reference-type="{{ option.type }}"
+          data-reference-id="{{ option.id }}"
+          data-reference-label="{{ option.label }}"
+          data-reference-url="{{ option.url }}"
+          data-reference-group="{{ option.group }}"
+          data-reference-terms="{{ option.terms }}"
+        >
+          <span class="session-reference-preview {% if not option.image_url %}is-empty{% endif %}" aria-hidden="true">
+            {% if option.image_url %}
+              <img data-reference-preview-src="{{ option.image_url }}" alt="" loading="lazy" decoding="async">
+            {% elif option.type == "god" %}
+              <span class="card-icon icon-rune"></span>
+            {% else %}
+              <span class="card-icon icon-handout"></span>
+            {% endif %}
+          </span>
+          <span class="session-reference-copy">
+            <strong>{{ option.label }}</strong>
+            <small>{{ option.group }}{% if option.subtitle %} · {{ option.subtitle }}{% endif %}</small>
+            {% if option.tags %}
+              <span class="session-reference-tags">
+                {% for tag in option.tags %}<em>{{ tag }}</em>{% endfor %}
+              </span>
+            {% endif %}
+          </span>
+        </button>
+      {% endfor %}
+    </div>
+  {% endfor %}
+  <div class="spotlight-empty" data-reference-empty>Введите минимум 2 символа или вставьте ссылку/путь.</div>
+{% endmacro %}
+
+{% macro session_refs(session, editable=False) %}
+  {% set reference_groups = [("character", "NPC"), ("god", "Боги"), ("map", "Карты"), ("scene", "Раздат"), ("generator", "Генераторы")] %}
+  {% if editable %}
+    <div class="note-reference-list" data-note-reference-list>
+      {% for reference in session.references %}
+        {% set label = "NPC" if reference.type == "character" else "Боги" if reference.type == "god" else "Карты" if reference.type == "map" else "Раздат" if reference.type == "scene" else "Генераторы" if reference.type == "generator" else reference.type %}
+        <span class="note-reference-chip note-reference-chip-{{ reference.type }}" data-note-reference-chip="{{ reference.type }}:{{ reference.id }}">
+          <span class="note-reference-kind">{{ label }}</span>
+          <a href="{{ reference.url or '#' }}" target="_blank" rel="noopener noreferrer">{{ reference.label }}</a>
+          <button type="button" data-remove-note-reference="{{ reference.type }}:{{ reference.id }}" aria-label="Убрать связь {{ reference.label }}">×</button>
+        </span>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="note-reference-list note-reference-list-compact">
+      <div class="note-reference-group note-reference-group-party">
+        <span class="note-reference-group-label">Группа</span>
+        <span class="note-reference-chip note-reference-chip-party">
+          <button type="button" data-material-preview-type="party" data-material-preview-id="{{ campaign.slug }}" data-material-preview-url="{{ url_for('section', slug='party', campaign=campaign.slug) }}">Группа игроков</button>
+        </span>
+      </div>
+      {% for ref_type, group_label in reference_groups %}
+        {% set group_refs = session.references | selectattr("type", "equalto", ref_type) | list %}
+        {% if group_refs %}
+          <div class="note-reference-group note-reference-group-{{ ref_type }}">
+            <span class="note-reference-group-label">{{ group_label }}</span>
+            {% for reference in group_refs %}
+              <span class="note-reference-chip note-reference-chip-{{ reference.type }}">
+                <button type="button" data-material-preview-type="{{ reference.type }}" data-material-preview-id="{{ reference.id }}" data-material-preview-url="{{ reference.url or '#' }}">{{ reference.label }}</button>
+              </span>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endmacro %}
+
+{% macro reference_picker(session) %}
+  <section class="note-reference-editor" data-note-reference-editor>
+    <div class="note-reference-heading">
+      <div>
+        <p class="kicker">Материалы сессии</p>
+        <strong>NPC, карты и раздат, которые нужны за столом.</strong>
+      </div>
+      <button type="button" data-toggle-reference-picker>Добавить</button>
+    </div>
+    <input type="hidden" name="references_json" value='{{ session.references | tojson }}' data-note-references-json>
+    {{ session_refs(session, True) }}
+    <div class="note-reference-picker session-reference-spotlight" data-note-reference-picker hidden>
+      <div class="spotlight-input-wrap session-reference-input-wrap">
+        <span>⌕</span>
+        <input type="search" placeholder="Найти или вставить ссылку/путь из приложения..." autocomplete="off" data-reference-search>
+      </div>
+      <div class="note-reference-options spotlight-results" data-note-reference-options>
+        <div class="spotlight-empty" data-reference-empty>Введите минимум 2 символа или вставьте ссылку/путь.</div>
+      </div>
+    </div>
+  </section>
+{% endmacro %}
+
+{% macro status_switch(value) %}
+  <div class="session-status-switch" data-session-status-switch>
+    <input type="hidden" name="status" value="{{ value }}" data-session-status-input>
+    {% for status in note_statuses %}
+      <button type="button" data-session-status-value="{{ status }}" class="{% if value == status %}is-active{% endif %}">{{ status }}</button>
+    {% endfor %}
+  </div>
+{% endmacro %}
+
+{% macro session_text_switch(session) %}
+  <div class="session-text-switch" role="tablist" aria-label="Текст сессии">
+    <button type="button" class="is-active" data-session-text-tab="planned">Запланировано</button>
+    <button type="button" data-session-text-tab="happened">Произошло</button>
+  </div>
+  <label class="note-body-field" data-session-text-panel="planned">
+    <span class="markdown-field-title">
+      План на сессию
+      <button class="markdown-help-trigger" type="button" data-open-markdown-help title="Подсказка по Markdown">?</button>
+    </span>
+    <textarea name="planned_body" rows="14" data-note-body>{{ session.planned_body }}</textarea>
+  </label>
+  <label class="note-body-field" data-session-text-panel="happened" hidden>
+    <span class="markdown-field-title">
+      Что произошло
+      <button class="markdown-help-trigger" type="button" data-open-markdown-help title="Подсказка по Markdown">?</button>
+    </span>
+    <textarea name="happened_body" rows="14" data-note-body>{{ session.happened_body }}</textarea>
+  </label>
+{% endmacro %}
+
+{% macro session_editor(session) %}
+  <form class="note-editor-form" action="{{ url_for('update_note', note_id=session.id) }}" method="post" data-note-form data-note-autosave>
+    <input type="hidden" name="campaign_slug" value="{{ campaign.slug }}">
+    {{ return_state() }}
+    <div class="note-editor-heading">
+      <div>
+        <p class="kicker">Редактор сессии</p>
+        <h2>{{ session_label(session) }}</h2>
+        <small class="note-autosave-state" data-note-autosave-state></small>
+      </div>
+    </div>
+    <div class="notes-filter-grid">
+      <label>
+        Статус
+        {{ status_switch(session.status) }}
+      </label>
+      <label>
+        Дата проведения игры
+        <input name="world_date" value="{{ session.world_date }}" type="date">
+      </label>
+    </div>
+    <label>
+      Название
+      <input name="title" value="{{ session.title }}" placeholder="Например: Тени над гаванью" required>
+    </label>
+    <div class="notes-filter-grid session-hours-fields">
+      <label>
+        Часы подготовки
+        <input name="prep_hours" value="{{ session.prep_hours }}" type="number" min="0" step="0.25" inputmode="decimal" placeholder="Например: 2">
+      </label>
+      <label>
+        Часы игры
+        <input name="play_hours" value="{{ session.play_hours }}" type="number" min="0" step="0.25" inputmode="decimal" placeholder="Например: 4">
+      </label>
+    </div>
+    <label>
+      Теги
+      <input name="tags" value="{{ session.tags | join(', ') }}" placeholder="Город, Культ, Финал арки">
+    </label>
+    <div class="map-modal-tags">
+      {% for tag in tags %}
+        <button type="button" data-insert-note-tag="{{ tag }}" {% if tag in required_tags %}data-service-tag="true"{% endif %}>{{ tag }}</button>
+      {% endfor %}
+    </div>
+    {{ reference_picker(session) }}
+    {{ session_text_switch(session) }}
+    <div class="note-editor-actions">
+      <button class="map-modal-save" type="submit">Сохранить сессию</button>
+      <button class="danger-button hold-delete-button note-editor-delete-button" type="button" data-open-note-delete="{{ session.id }}" data-note-delete-label="{{ session_label(session) }}" data-hold-submit aria-label="Удалить {{ session_label(session) }}" title="Удерживайте, чтобы удалить сессию" style="--hold-progress: 0">
+        <span class="note-editor-delete-icon" aria-hidden="true"></span>
+      </button>
+    </div>
+  </form>
+{% endmacro %}
+
+{% block title %}Хроника сессий - {{ campaign.name }} - {{ app_name }}{% endblock %}
+
+{% block content %}
+<section class="notes-hero maps-hero session-chronicle-hero session-chronicle-hero-compact">
+  <div>
+    <a class="back-link" href="{{ url_for('campaign_detail', slug=campaign.slug) }}">← {{ campaign.name }}</a>
+    <p class="kicker">Хроника партии</p>
+    <h1>Хроника сессий</h1>
+    <p class="hero-text">Планируйте будущие встречи и фиксируйте итоги прошедших: план, фактическая хроника, дата игры, статус и связанные NPC, карты и раздат.</p>
+  </div>
+</section>
+
+<section class="notes-search-panel session-search-panel" data-notes-page data-campaign-slug="{{ campaign.slug }}" data-note-tag-reorder-url="{{ url_for('reorder_note_tags') }}" data-material-preview-endpoint="{{ url_for('material_preview') }}">
+  <form class="page-search-panel page-search-form notes-filter-form notes-filter-form-wide session-filter-row" action="{{ url_for('notes_page') }}" method="get">
+    <input type="hidden" name="campaign" value="{{ campaign.slug }}">
+    <label class="notes-search-main page-search-label">
+      Поиск
+      <input class="page-search-input" name="q" value="{{ search }}" type="search" placeholder="Номер, название или дата...">
+    </label>
+    <label>
+      Статус
+      <select name="status">
+        <option value="">Все</option>
+        {% for status in note_statuses %}<option value="{{ status }}" {% if selected_status == status %}selected{% endif %}>{{ status }}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="session-date-range">
+      Период игры
+      <span>
+        <input name="date_from" value="{{ date_from }}" type="date" aria-label="Дата от">
+        <input name="date_to" value="{{ date_to }}" type="date" aria-label="Дата до">
+      </span>
+    </label>
+    {% for tag in selected_tags %}<input type="hidden" name="tag" value="{{ tag }}">{% endfor %}
+    {% for tag in excluded_tags %}<input type="hidden" name="exclude_tag" value="{{ tag }}">{% endfor %}
+    <div class="note-filter-actions">
+      <button type="submit">Применить</button>
+      <a href="{{ url_for('notes_page', campaign=campaign.slug) }}" data-notes-reset-filters>Сбросить</a>
+    </div>
+  </form>
+
+  <div class="notes-tags-panel notes-tags-panel-inline rules-tools">
+    <div class="map-tools-heading">
+      <div>
+        <p class="kicker">Теги сессий</p>
+        <strong>Фильтруйте хронику по аркам, местам и типам сцен.</strong>
+      </div>
+      <button class="tag-edit-toggle" type="button" data-toggle-note-tags aria-expanded="false" title="Редактировать теги">⚙</button>
+    </div>
+    <div class="tag-filter-list rule-filter-list" data-note-tag-filters data-active-tags="{{ selected_tags | join('||') }}" data-excluded-tags="{{ excluded_tags | join('||') }}">
+      {% for tag in tags %}
+        <span class="rule-filter-chip {% if tag in selected_tags %}is-included{% endif %}{% if tag in excluded_tags %} is-excluded{% endif %}" data-note-tag-item data-note-tag="{{ tag }}">
+          <button type="button" data-note-include-tag="{{ tag }}" aria-label="Показать сессии с тегом {{ tag }}">{{ tag }}</button>
+          <button type="button" data-note-exclude-tag="{{ tag }}" aria-label="Исключить сессии с тегом {{ tag }}">−</button>
+        </span>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<div class="map-modal audio-taxonomy-modal map-taxonomy-modal note-taxonomy-modal" data-note-tag-editor aria-hidden="true">
+  <div class="map-modal-backdrop" data-close-note-tags></div>
+  <section class="map-modal-dialog audio-taxonomy-dialog map-taxonomy-dialog" role="dialog" aria-modal="true" aria-label="Редактировать теги сессий">
+    <div class="map-modal-form audio-taxonomy-shell map-taxonomy-shell">
+      <div class="map-modal-heading">
+        <div>
+          <p class="kicker">Хроники</p>
+          <h2>Теги сессий</h2>
+        </div>
+        <button type="button" data-close-note-tags aria-label="Закрыть редактор тегов">×</button>
+      </div>
+
+    <div class="tag-editor-panel audio-taxonomy-panel map-taxonomy-panel" data-note-tag-rename-url="{{ url_for('rename_note_tag') }}">
+      <div class="audio-taxonomy-pane map-taxonomy-pane is-active">
+      <form class="tag-create-form rule-category-create-form rule-order-create-form audio-category-create-form map-tag-create-form" action="{{ url_for('add_note_tag') }}" method="post" data-note-tag-create-form>
+        <input type="hidden" name="campaign_slug" value="{{ campaign.slug }}">
+        {{ return_state() }}
+        <label>
+          Новый тег
+          <input name="tag" placeholder="Арка, Город, Подземелье, Финал" required>
+        </label>
+        <button class="audio-secondary-button" type="submit">Создать тег</button>
+        <button class="rule-order-open-button" type="button" data-open-note-tag-order title="Упорядочить теги">↕</button>
+      </form>
+
+      <div class="audio-tag-manager map-tag-manager">
+        <label>
+          Найти тег
+          <input type="search" placeholder="Начните вводить название" data-note-taxonomy-tag-search>
+        </label>
+      <div class="audio-tag-delete-grid map-tag-delete-grid rule-tag-order-list" data-note-tag-order-list>
+        {% for tag in tags if tag not in required_tags %}
+          <form action="{{ url_for('delete_note_tag') }}" method="post" data-note-tag-order-item data-note-tag="{{ tag }}">
+            <input type="hidden" name="campaign_slug" value="{{ campaign.slug }}">
+            {{ return_state() }}
+            <input type="hidden" name="tag" value="{{ tag }}">
+            <div class="audio-tag-row-view map-tag-row-view">
+            <span>{{ tag }}</span>
+              <button class="audio-taxonomy-icon-button map-tag-icon-button" type="button" data-note-rename-tag="{{ tag }}" aria-label="Переименовать тег {{ tag }}">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4 11.5-11.5Z"/></svg>
+              </button>
+              <button class="hold-delete-button" type="button" data-hold-submit data-hold-static-icon style="--hold-progress: 0" aria-label="Удалить тег {{ tag }}">
+                <span data-hold-delete-label>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 15h10l1-15"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                </span>
+              </button>
+            </div>
+          </form>
+        {% endfor %}
+      </div>
+    </div>
+      </div>
+    </div>
+    </div>
+  </section>
+  </div>
+
+<div class="map-modal rule-tag-rename-modal" data-note-tag-rename-modal aria-hidden="true">
+  <div class="map-modal-backdrop" data-close-note-tag-rename></div>
+  <section class="map-modal-dialog rule-tag-order-dialog" role="dialog" aria-modal="true" aria-label="Переименовать тег сессий">
+    <div class="map-modal-form">
+      <div class="map-modal-heading">
+        <div>
+          <p class="kicker">Переименование тега</p>
+          <h2 data-note-tag-rename-title>Переименовать тег</h2>
+        </div>
+        <button type="button" data-close-note-tag-rename aria-label="Закрыть переименование">×</button>
+      </div>
+      <label>
+        Новое название
+        <input type="text" data-note-tag-rename-input aria-label="Новое название тега">
+      </label>
+      <div class="upload-modal-actions">
+        <button type="button" data-close-note-tag-rename>Отмена</button>
+        <button class="audio-secondary-button map-tag-rename-save-button taxonomy-rename-save-button" type="button" data-save-note-tag-rename>Сохранить</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="map-modal rule-tag-order-modal" data-note-tag-order-modal aria-hidden="true">
+  <div class="map-modal-backdrop" data-close-note-tag-order></div>
+  <section class="map-modal-dialog rule-tag-order-dialog" role="dialog" aria-modal="true" aria-label="Упорядочить теги сессий">
+    <div class="map-modal-form">
+      <div class="map-modal-heading">
+        <div>
+          <p class="kicker">Теги сессий</p>
+          <h2>Упорядочить теги</h2>
+        </div>
+        <button type="button" data-close-note-tag-order aria-label="Закрыть упорядочивание">×</button>
+      </div>
+      <p class="rule-order-help">Перетащите теги в нужном порядке. Сервисный тег “{{ required_tags[0] }}” всегда останется последним.</p>
+      <div class="rule-order-list" data-note-order-modal-list>
+        {% for tag in tags %}
+          {% if tag not in required_tags %}
+            <div class="rule-order-item" draggable="true" data-note-order-modal-item data-note-tag="{{ tag }}">
+              <span class="rule-order-number" data-rule-order-number>{{ loop.index }}</span>
+              <span class="tag-drag-handle" aria-hidden="true">↕</span>
+              <strong>{{ tag }}</strong>
+            </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+      <div class="upload-modal-actions">
+        <button type="button" data-close-note-tag-order>Отмена</button>
+        <button type="button" data-save-note-tag-order>Сохранить порядок</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="session-stats-wrap">
+  <div class="session-overview-actions">
+    <button type="button" data-open-session-calendar>Календарь игр</button>
+  </div>
+  <section class="session-stats-panel">
+    <article>
+      <span>Проведено игр</span>
+      <strong>{{ session_stats.completed_count }}</strong>
+    </article>
+    <article>
+      <span>Частота в неделю</span>
+      <strong>{% if session_stats.weekly_frequency %}{{ hours_value(session_stats.weekly_frequency) }}{% else %}—{% endif %}</strong>
+    </article>
+    <article>
+      <span>Частота в месяц</span>
+      <strong>{% if session_stats.monthly_frequency %}{{ hours_value(session_stats.monthly_frequency) }}{% else %}—{% endif %}</strong>
+    </article>
+    <article>
+      <span>Подготовка</span>
+      <strong>{{ hours_value(session_stats.prep_hours) }} ч</strong>
+    </article>
+    <article>
+      <span>За игрой</span>
+      <strong>{{ hours_value(session_stats.play_hours) }} ч</strong>
+    </article>
+  </section>
+</div>
+
+<section class="notes-list-panel notes-list-panel-wide session-chronicle-panel">
+  <div class="notes-list-heading">
+    <div>
+      <p class="kicker">{{ notes | length }} из {{ all_notes | length }}</p>
+      <h2>Лента сессий</h2>
+    </div>
+    {% if notes %}
+      <div class="note-list-actions">
+        <button type="button" class="danger-button danger-button-compact hold-delete-button" form="notes-delete-form" data-open-notes-delete-selected data-hold-submit hidden disabled style="--hold-progress: 0">
+          <span data-hold-delete-label>Удалить выбранные</span>
+        </button>
+        <button type="button" class="danger-button danger-button-compact hold-delete-button" form="notes-delete-all-form" data-open-notes-delete-all data-hold-submit style="--hold-progress: 0">
+          <span data-hold-delete-label>Удалить всё</span>
+        </button>
+      </div>
+    {% endif %}
+  </div>
+
+  <form id="notes-delete-form" class="session-timeline" action="{{ url_for('delete_notes') }}" method="post">
+    <input type="hidden" name="campaign_slug" value="{{ campaign.slug }}">
+    {{ return_state() }}
+    <article class="note-row note-card session-card-row session-create-card" data-open-note-create>
+      <button class="note-card-main session-card-main" type="button" data-open-note-create>
+        <span class="session-number session-number-plus">+</span>
+        <span class="note-row-meta"><em>В планах</em></span>
+        <strong>Запланировать новую сессию</strong>
+        <small>Создайте следующую встречу, прикрепите NPC, карты и раздат, а затем заполните план.</small>
+      </button>
+    </article>
+    {% for session in notes %}
+      <article class="note-row note-card session-card-row status-{{ 'done' if session.status == 'Проведена' else 'planned' }}" data-note-card="{{ session.id }}">
+        <label class="note-select">
+          <input type="checkbox" name="note_ids" value="{{ session.id }}">
+          <span>Выбрать</span>
+        </label>
+        <button class="note-card-main session-card-main" type="button" data-open-note-view="{{ session.id }}">
+          <span class="session-number">{{ "0" if session.session_number == 0 else "#" ~ session.session_number }}</span>
+          <span class="note-row-meta">
+            <em>{{ session.status }}</em>
+            {% if session.world_date %}<em>{{ session.world_date }}</em>{% endif %}
+          </span>
+          {{ session_hours_meta(session) }}
+          <strong>{{ session.title }}</strong>
+          <div class="note-preview-card">
+            {% if session.status == "Проведена" and session.happened_body %}
+              {{ render_note_content(session.happened_body) }}
+            {% else %}
+              {{ render_note_content(session.planned_body) }}
+            {% endif %}
+          </div>
+          <span class="note-row-tags">{{ session.tags | join(" · ") }}</span>
+        </button>
+        {{ session_refs(session) }}
+        <button class="note-edit-fab" type="button" data-open-note-edit="{{ session.id }}" aria-label="Редактировать {{ session_label(session) }}" title="Редактировать">✎</button>
+      </article>
+    {% endfor %}
+  </form>
+  <form id="notes-delete-all-form" action="{{ url_for('delete_all_notes') }}" method="post" hidden>
+    <input type="hidden" name="campaign_slug" value="{{ campaign.slug }}">
+    {{ return_state() }}
+  </form>
+</section>
+
+{% for session in notes %}
+  <div class="map-modal note-view-modal" data-note-view-modal="{{ session.id }}" aria-hidden="true">
+    <div class="map-modal-backdrop" data-close-note-modal></div>
+    <section class="map-modal-dialog note-modal-dialog" role="dialog" aria-modal="true" aria-label="{{ session_label(session) }}">
+      <div class="note-modal-body">
+        <div class="map-modal-heading">
+          <div>
+            <p class="kicker">{{ session_label(session) }} · {{ session.status }}</p>
+            <h2>{{ session.title }}</h2>
+          </div>
+          <button type="button" data-close-note-modal aria-label="Закрыть сессию">×</button>
+        </div>
+        <div class="note-row-meta">
+          {% if session.world_date %}<em>{{ session.world_date }}</em>{% endif %}
+          {% for tag in session.tags %}<em>{{ tag }}</em>{% endfor %}
+        </div>
+        {{ session_hours_meta(session) }}
+        {{ session_refs(session) }}
+        {% if session.happened_body %}
+          <article class="note-preview-panel note-preview-panel-readable">
+            <p class="kicker">Произошло</p>
+            {{ render_note_content(session.happened_body) }}
+          </article>
+        {% elif session.planned_body %}
+          <article class="note-preview-panel note-preview-panel-readable">
+            <p class="kicker">Запланировано</p>
+            {{ render_note_content(session.planned_body) }}
+          </article>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+
+  <div class="map-modal note-edit-modal" data-note-edit-modal="{{ session.id }}" aria-hidden="true">
+    <div class="map-modal-backdrop" data-close-note-modal></div>
+    <section class="map-modal-dialog note-modal-dialog note-editor-modal-dialog" role="dialog" aria-modal="true" aria-label="Редактировать {{ session_label(session) }}">
+      <div class="note-modal-body">
+        <button class="note-modal-close" type="button" data-close-note-modal aria-label="Закрыть редактор">×</button>
+        {{ session_editor(session) }}
+      </div>
+    </section>
+  </div>
+{% endfor %}
+
+<div class="map-modal note-edit-modal note-create-modal" data-note-create-modal aria-hidden="true">
+  <div class="map-modal-backdrop" data-close-note-modal></div>
+  <section class="map-modal-dialog note-modal-dialog note-editor-modal-dialog" role="dialog" aria-modal="true" aria-label="Запланировать новую сессию">
+    <div class="note-modal-body">
+      <button class="note-modal-close" type="button" data-close-note-modal aria-label="Закрыть создание сессии">×</button>
+      <form class="note-editor-form" action="{{ url_for('create_note') }}" method="post" data-note-form>
+        <input type="hidden" name="campaign_slug" value="{{ campaign.slug }}">
+        {{ return_state() }}
+        <div class="note-editor-heading">
+          <div>
+            <p class="kicker">Новая сессия</p>
+            <h2>Запланировать новую сессию</h2>
+          </div>
+        </div>
+        <div class="notes-filter-grid">
+          <label>
+            Статус
+            {{ status_switch(note_statuses[0]) }}
+          </label>
+          <label>
+            Дата проведения игры
+            <input name="world_date" type="date">
+          </label>
+        </div>
+        <label>
+          Название
+          <input name="title" placeholder="Например: Тени над гаванью">
+        </label>
+        <div class="notes-filter-grid session-hours-fields">
+          <label>
+            Часы подготовки
+            <input name="prep_hours" type="number" min="0" step="0.25" inputmode="decimal" placeholder="Например: 2">
+          </label>
+          <label>
+            Часы игры
+            <input name="play_hours" type="number" min="0" step="0.25" inputmode="decimal" placeholder="Например: 4">
+          </label>
+        </div>
+        <label>
+          Теги
+          <input name="tags" value="{{ required_tags[0] }}" placeholder="Город, Культ, Финал арки">
+        </label>
+        <div class="map-modal-tags">
+          {% for tag in tags %}
+            <button type="button" data-insert-note-tag="{{ tag }}" {% if tag in required_tags %}data-service-tag="true"{% endif %}>{{ tag }}</button>
+          {% endfor %}
+        </div>
+        {{ reference_picker(empty_note) }}
+        {{ session_text_switch({"planned_body": "", "happened_body": ""}) }}
+        <button class="map-modal-save" type="submit">Создать сессию</button>
+      </form>
+    </div>
+  </section>
+</div>
+
+<div class="map-modal material-preview-modal" data-material-preview-modal aria-hidden="true">
+  <div class="map-modal-backdrop" data-close-material-preview></div>
+  <section class="map-modal-dialog material-preview-dialog" role="dialog" aria-modal="true" aria-label="Материал сессии">
+    <div class="map-modal-preview material-preview-media" data-material-preview-media></div>
+    <div class="map-modal-form material-preview-content">
+      <div class="map-modal-heading">
+        <div>
+          <p class="kicker" data-material-preview-kicker>Материал</p>
+          <h2 data-material-preview-title>Материал сессии</h2>
+          <small data-material-preview-subtitle></small>
+        </div>
+        <button type="button" data-close-material-preview aria-label="Закрыть материал">×</button>
+      </div>
+      <div class="note-reference-list" data-material-preview-tags></div>
+      <div class="material-preview-fields" data-material-preview-fields></div>
+      <div class="material-preview-actions">
+        <a class="map-modal-save" href="#" target="_blank" rel="noopener noreferrer" data-material-preview-page>&#1054;&#1090;&#1082;&#1088;&#1099;&#1090;&#1100; &#1089;&#1090;&#1088;&#1072;&#1085;&#1080;&#1094;&#1091;</a>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="map-modal session-calendar-modal" data-session-calendar-modal aria-hidden="true">
+  <div class="map-modal-backdrop" data-close-session-calendar></div>
+  <section class="map-modal-dialog single-panel-dialog session-calendar-dialog" role="dialog" aria-modal="true" aria-label="Календарь игр">
+    <div class="map-modal-form session-calendar-panel">
+      <div class="map-modal-heading">
+        <div>
+          <p class="kicker">Обзор хроники</p>
+          <h2 data-session-calendar-title>Календарь игр</h2>
+        </div>
+        <button type="button" data-close-session-calendar aria-label="Закрыть календарь">×</button>
+      </div>
+      <div class="session-calendar-toolbar">
+        <button type="button" data-session-calendar-prev aria-label="Предыдущий месяц">‹</button>
+        <strong data-session-calendar-month></strong>
+        <button type="button" data-session-calendar-next aria-label="Следующий месяц">›</button>
+      </div>
+      <div class="session-calendar-weekdays" aria-hidden="true">
+        <span>Пн</span>
+        <span>Вт</span>
+        <span>Ср</span>
+        <span>Чт</span>
+        <span>Пт</span>
+        <span>Сб</span>
+        <span>Вс</span>
+      </div>
+      <div class="session-calendar-grid" data-session-calendar-grid></div>
+      <div class="session-calendar-popover" data-session-calendar-popover role="tooltip" hidden></div>
+      <p class="session-calendar-empty" data-session-calendar-empty hidden>Проведённых игр с датами пока нет.</p>
+    </div>
+  </section>
+</div>
+
+<script type="application/json" nonce="{{ csp_nonce }}" data-session-calendar-events>{{ session_calendar_events | tojson }}</script>
+
+<template data-note-reference-options-template>
+  {{ reference_options_content() }}
+</template>
+
+<div class="map-modal note-confirm-modal" data-note-confirm-modal aria-hidden="true">
+  <div class="map-modal-backdrop" data-close-note-confirm></div>
+  <section class="map-modal-dialog rule-tag-order-dialog" role="dialog" aria-modal="true" aria-label="Подтвердить действие">
+    <div class="map-modal-form">
+      <div class="map-modal-heading">
+        <div>
+          <p class="kicker" data-note-confirm-kicker>Подтверждение</p>
+          <h2 data-note-confirm-title>Подтвердить действие?</h2>
+        </div>
+        <button type="button" data-close-note-confirm aria-label="Закрыть подтверждение">×</button>
+      </div>
+      <p class="rule-order-help" data-note-confirm-message>Это действие нельзя отменить.</p>
+      <div class="upload-modal-actions rule-delete-confirm-actions">
+        <button type="button" data-close-note-confirm>Отмена</button>
+        <button class="danger-button" type="button" data-note-confirm-action>Удалить</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="copy-toast" data-notes-toast role="status" aria-live="polite"></div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{{ url_for('static', filename='js/notes.js', v='note-tag-rename-keep-modal-1') }}"></script>
+{% endblock %}

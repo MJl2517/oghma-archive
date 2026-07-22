@@ -1,0 +1,470 @@
+{% extends "base.html" %}
+
+{% set nav_sections = campaign_sections %}
+
+{% block title %}Неигровые персонажи - {{ campaign.name }} - {{ app_name }}{% endblock %}
+
+{% macro character_modal(character) %}
+  <div class="map-modal character-modal" data-character-modal="{{ character.id }}" aria-hidden="true">
+    <div class="map-modal-backdrop" data-close-character-modal></div>
+    <section class="map-modal-dialog character-modal-dialog" role="dialog" aria-modal="true" aria-label="Карточка NPC {{ character.name }}">
+      <div class="map-modal-preview character-modal-preview">
+        <img src="{{ character.url }}" alt="{{ character.name }}" loading="lazy" decoding="async">
+        <div class="map-hover-actions character-preview-actions">
+          <button class="map-action-button" type="button" data-copy-character-art data-copy-foundry-path="{{ character.foundry_path }}" aria-label="Скопировать Foundry-путь арта {{ character.name }}" title="Скопировать путь для Foundry">⛓</button>
+        </div>
+      </div>
+      <form id="character-form-{{ character.id }}" class="map-modal-form character-modal-form" action="{{ url_for('update_character', character_id=character.id) }}" method="post" data-character-form>
+        <input type="hidden" name="campaign_slug" value="{{ campaign.slug }}">
+        {% for tag in selected_tags %}
+          <input type="hidden" name="return_tag" value="{{ tag }}">
+        {% endfor %}
+        {% for tag in excluded_tags %}
+          <input type="hidden" name="return_exclude_tag" value="{{ tag }}">
+        {% endfor %}
+        <input type="hidden" name="return_search" value="{{ search }}">
+        <input type="hidden" name="return_page" value="{{ pagination.page }}">
+        <input type="hidden" name="return_per_page" value="{{ pagination.per_page }}">
+        <div class="map-modal-heading">
+          <div>
+            <p class="kicker">Карточка NPC</p>
+            <h2>{{ character.name }}</h2>
+          </div>
+          <div class="map-modal-heading-actions">
+            <button class="favorite-toggle-button" type="button" data-favorite-toggle data-favorite-type="character" data-favorite-id="{{ character.id }}" data-favorite-campaign="{{ campaign.slug }}" data-favorite-title="{{ character.name }}" aria-label="Добавить NPC в избранное" title="Избранное">☆</button>
+            <button type="button" data-close-character-modal aria-label="Закрыть карточку">×</button>
+          </div>
+        </div>
+
+        <div class="character-view" data-character-view>
+          <button type="button" class="character-copy-field character-view-name" data-copy-value="{{ character.name }}"><span>Имя</span><strong>{{ character.name }}</strong></button>
+          <button type="button" class="character-copy-field" data-copy-value="{{ character.age or 'Не указано' }}"><span>Возраст</span><strong>{{ character.age or 'Не указано' }}</strong></button>
+          <button type="button" class="character-copy-field" data-copy-value="{{ character.gender }}"><span>Пол</span><strong>{{ character.gender }}</strong></button>
+          <button type="button" class="character-copy-field" data-copy-value="{{ character.race or 'Не указано' }}"><span>Раса</span><strong>{{ character.race or 'Не указано' }}</strong></button>
+          <button type="button" class="character-copy-field" data-copy-value="{{ character.tags | join(', ') }}"><span>Теги</span><strong>{{ character.tags | join(', ') }}</strong></button>
+          <div class="character-copy-field character-copy-notes" data-copy-value="{{ character.notes or 'Заметок пока нет.' }}" role="button" tabindex="0"><span>Заметки</span><div class="character-notes-rich" data-character-rich-value>{{ render_text_content(character.notes or 'Заметок пока нет.') }}</div></div>
+        </div>
+
+        <div class="character-edit" data-character-edit hidden>
+          <div class="character-fields-grid">
+            <label>
+              Имя
+              <input name="name" value="{{ character.name }}" placeholder="Имя NPC">
+            </label>
+            <label>
+              Возраст
+              <input name="age" value="{{ character.age }}" placeholder="Например: 32">
+            </label>
+            <label>
+              Пол
+              <select name="gender">
+                {% for gender in genders %}
+                  <option value="{{ gender }}" {% if character.gender == gender %}selected{% endif %}>{{ gender }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label>
+              Раса
+              <input name="race" value="{{ character.race }}" placeholder="Человек, эльф, тифлинг...">
+            </label>
+          </div>
+          <label>
+            Теги
+            <input name="tags" value="{{ character.tags | join(', ') }}" placeholder="Союзники, Культ, Город">
+          </label>
+          <input class="tag-picker-search" type="search" placeholder="Найти тег" data-character-tag-search>
+          <div class="map-modal-tags">
+            {% for tag in tags %}
+              <button type="button" data-insert-character-tag="{{ tag }}" {% if tag in required_tags %}data-service-tag="true"{% endif %}>{{ tag }}</button>
+            {% endfor %}
+          </div>
+          <label class="character-notes-field">
+            <span class="markdown-field-title">
+              Заметки
+              <button class="markdown-help-trigger" type="button" data-open-markdown-help title="Подсказка по Markdown">?</button>
+            </span>
+            <textarea name="notes" rows="7" placeholder="Связи, секреты, голос, цели, что уже произошло...">{{ character.notes }}</textarea>
+          </label>
+        </div>
+      </form>
+      <div class="character-modal-actions" data-character-edit-only hidden>
+        <button class="map-modal-save" type="submit" form="character-form-{{ character.id }}">Сохранить NPC</button>
+        <form class="character-single-delete-form" action="{{ url_for('delete_characters') }}" method="post">
+          <input type="hidden" name="campaign_slug" value="{{ campaign.slug }}">
+          {% for tag in selected_tags %}
+            <input type="hidden" name="return_tag" value="{{ tag }}">
+          {% endfor %}
+          {% for tag in excluded_tags %}
+            <input type="hidden" name="return_exclude_tag" value="{{ tag }}">
+          {% endfor %}
+          <input type="hidden" name="return_search" value="{{ search }}">
+          <input type="hidden" name="return_page" value="{{ pagination.page }}">
+          <input type="hidden" name="return_per_page" value="{{ pagination.per_page }}">
+          <input type="hidden" name="character_ids" value="{{ character.id }}">
+          <button class="danger-button character-delete-icon hold-delete-button" type="button" data-hold-submit style="--hold-progress: 0" aria-label="Удалить NPC {{ character.name }}">
+            <span data-hold-delete-label aria-hidden="true"></span>
+          </button>
+        </form>
+      </div>
+    </section>
+  </div>
+{% endmacro %}
+
+{% block content %}
+<section class="maps-hero characters-hero">
+  <div>
+    <a class="back-link" href="{{ url_for('campaign_detail', slug=campaign.slug) }}">← {{ campaign.name }}</a>
+    <p class="kicker">Неигровые персонажи кампейна</p>
+    <h1>Неигровые персонажи</h1>
+    <p class="hero-text">
+      Храните арты NPC плиткой, назначайте каждому несколько тегов и быстро находите нужного NPC по имени.
+      Новые изображения без выбранных тегов попадут в “Неотсортированные”.
+    </p>
+  </div>
+
+  <form class="hero-folder-badge" action="{{ url_for('open_campaign_section_folder', slug=campaign.slug, folder='characters') }}" method="post" data-local-job-form>
+    <button type="submit">data/campaigns/{{ campaign.slug }}/characters</button>
+  </form>
+
+  <form class="upload-dropzone" action="{{ url_for('upload_characters') }}" method="post" enctype="multipart/form-data" data-character-dropzone>
+    <input type="hidden" name="campaign_slug" value="{{ campaign.slug }}">
+    <input type="hidden" name="batch_tags" value="{{ required_tags[0] }}" data-batch-tags-input>
+    {% for tag in selected_tags %}
+      <input type="hidden" name="return_tag" value="{{ tag }}">
+    {% endfor %}
+    {% for tag in excluded_tags %}
+      <input type="hidden" name="return_exclude_tag" value="{{ tag }}">
+    {% endfor %}
+    <input type="hidden" name="return_search" value="{{ search }}">
+    <input type="hidden" name="return_page" value="{{ pagination.page }}">
+    <input type="hidden" name="return_per_page" value="{{ pagination.per_page }}">
+    <input type="hidden" name="single_title" value="" data-character-single-title-input>
+    <input id="character-upload" name="characters" type="file" accept="image/*" multiple data-character-file-input>
+    <label for="character-upload">
+      <strong>Перетащите арты сюда</strong>
+      <span>или нажмите, чтобы выбрать несколько изображений</span>
+      <em data-character-file-count>PNG, JPG, WEBP, GIF, AVIF</em>
+    </label>
+    <button type="button" data-open-character-upload-modal>Загрузить NPC</button>
+  </form>
+</section>
+
+<div data-characters-dynamic data-active-tags="{{ selected_tags | join('||') }}" data-excluded-tags="{{ excluded_tags | join('||') }}" data-service-character-tag="{{ required_tags[0] }}" data-campaign-slug="{{ campaign.slug }}" data-open-character-id="{{ open_character_id | default('') }}">
+<section class="page-search-panel character-search-panel" aria-label="Поиск NPC">
+  <div class="map-tools-heading">
+    <div>
+      <p class="kicker">Поиск по имени</p>
+      <strong>Введите минимум три символа, и список NPC обновится без перезагрузки.</strong>
+    </div>
+  </div>
+
+  <form class="character-search-form page-search-form" action="{{ url_for('characters_page') }}" method="get" data-character-search-form>
+    <input type="hidden" name="campaign" value="{{ campaign.slug }}">
+    <input class="page-search-input" name="q" value="{{ search }}" type="search" placeholder="Поиск NPC: Ганнибал, Мирра, стражник..." autocomplete="off" data-character-search>
+    <small data-character-search-hint>Поиск начинается с 3 символов. При поиске фильтры по тегам временно сбрасываются.</small>
+  </form>
+</section>
+
+<section class="map-tools character-tools" aria-label="Теги NPC">
+  <div class="map-tools-heading">
+    <div>
+      <p class="kicker">Теги NPC</p>
+      <strong>Клик по тегу включает фильтр, кнопка − исключает тег из выдачи.</strong>
+    </div>
+    <button class="tag-edit-toggle" type="button" data-toggle-group-editor aria-expanded="false" title="Редактировать теги">⚙</button>
+  </div>
+
+  <div class="rule-filter-panel character-filter-panel" aria-label="Фильтры тегов NPC">
+    <input class="tag-picker-search" type="search" placeholder="Найти тег в фильтрах" data-character-filter-tag-search>
+    <div class="tag-filter-list rule-filter-list" data-character-group-filters data-character-filters>
+      {% for tag in tags %}
+        <span class="rule-filter-chip {% if tag in selected_tags %}is-included{% endif %}{% if tag in excluded_tags %} is-excluded{% endif %}" data-character-filter-chip="{{ tag }}">
+          <button type="button" data-character-include-tag="{{ tag }}" aria-label="Показать NPC с тегом {{ tag }}">{{ tag }}</button>
+          <button type="button" data-character-exclude-tag="{{ tag }}" aria-label="Исключить NPC с тегом {{ tag }}">−</button>
+        </span>
+      {% endfor %}
+    </div>
+    <div class="tag-actions">
+      <button class="clear-tags" type="button" data-character-clear-filters>Сбросить фильтры</button>
+      <span class="rule-filter-hint" data-character-filter-hint>Можно включить несколько тегов сразу или исключить лишние группы NPC.</span>
+    </div>
+  </div>
+
+  <div class="tag-actions">
+    <label class="maps-per-page-control">
+      <span>На странице</span>
+      <select data-characters-per-page>
+        {% for option in per_page_options %}
+          <option value="{{ option }}" {% if option == pagination.per_page %}selected{% endif %}>{{ option }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    {% if all_characters_count %}
+      <button class="select-mode-toggle" type="button" data-toggle-character-select-mode aria-expanded="false">Выбрать NPC</button>
+      <form class="delete-all-characters-form" action="{{ url_for('delete_all_characters_route') }}" method="post">
+        <input type="hidden" name="campaign_slug" value="{{ campaign.slug }}">
+        <button class="danger-button danger-button-compact hold-delete-button" type="button" data-hold-submit style="--hold-progress: 0">
+          <span data-hold-delete-label>Удалить всех NPC</span>
+        </button>
+      </form>
+    {% endif %}
+  </div>
+
+</section>
+
+<div class="map-modal audio-taxonomy-modal map-taxonomy-modal character-taxonomy-modal" data-group-editor aria-hidden="true">
+  <div class="map-modal-backdrop" data-close-group-editor></div>
+  <section class="map-modal-dialog audio-taxonomy-dialog map-taxonomy-dialog" role="dialog" aria-modal="true" aria-label="Редактировать теги NPC">
+    <div class="map-modal-form audio-taxonomy-shell map-taxonomy-shell">
+      <div class="map-modal-heading">
+        <div>
+          <p class="kicker">NPC</p>
+          <h2>Теги NPC</h2>
+        </div>
+        <button type="button" data-close-group-editor aria-label="Закрыть редактор тегов">×</button>
+      </div>
+
+  <div class="tag-editor-panel audio-taxonomy-panel map-taxonomy-panel" data-character-tag-editor data-character-tag-rename-url="{{ url_for('rename_character_group') }}">
+    <div class="audio-taxonomy-pane map-taxonomy-pane is-active">
+    <form class="tag-create-form rule-category-create-form rule-order-create-form audio-category-create-form map-tag-create-form" action="{{ url_for('add_character_group') }}" method="post" data-character-tag-create-form>
+      <input type="hidden" name="campaign_slug" value="{{ campaign.slug }}">
+      <label>
+        Новый тег
+        <input name="tag" placeholder="Например: Гильдия, Культ, Семья, Двор" required data-character-tag-create-input>
+      </label>
+      <button class="audio-secondary-button" type="submit">Создать тег</button>
+      <button class="rule-order-open-button" type="button" data-open-character-tag-order aria-label="Упорядочить теги" title="Упорядочить теги">↕</button>
+    </form>
+
+    <div class="audio-tag-manager map-tag-manager">
+      <label>
+        Найти тег
+        <input type="search" placeholder="Начните вводить название" data-character-taxonomy-tag-search>
+      </label>
+    <div class="audio-tag-delete-grid map-tag-delete-grid rule-tag-order-list" aria-label="Удаление тегов" data-character-tag-order-list>
+      {% for tag in tags if tag not in required_tags %}
+        <form action="{{ url_for('delete_character_group') }}" method="post" data-character-tag-order-item data-character-tag="{{ tag }}">
+          <input type="hidden" name="campaign_slug" value="{{ campaign.slug }}">
+          <input type="hidden" name="tag" value="{{ tag }}">
+          <div class="audio-tag-row-view map-tag-row-view">
+          <span>{{ tag }}</span>
+            <button class="audio-taxonomy-icon-button map-tag-icon-button" type="button" data-character-rename-tag="{{ tag }}" aria-label="Переименовать тег {{ tag }}">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4 11.5-11.5Z"/></svg>
+            </button>
+            <button class="hold-delete-button" type="button" data-hold-submit data-hold-static-icon style="--hold-progress: 0" aria-label="Удалить тег {{ tag }}">
+              <span data-hold-delete-label>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 15h10l1-15"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+              </span>
+            </button>
+          </div>
+        </form>
+      {% endfor %}
+    </div>
+  </div>
+    </div>
+  </div>
+    </div>
+  </section>
+</div>
+
+<div class="map-modal rule-tag-rename-modal" data-character-tag-rename-modal aria-hidden="true">
+  <div class="map-modal-backdrop" data-close-character-tag-rename></div>
+  <section class="map-modal-dialog rule-tag-order-dialog" role="dialog" aria-modal="true" aria-label="Переименовать тег NPC">
+    <div class="map-modal-form">
+      <div class="map-modal-heading">
+        <div>
+          <p class="kicker">Переименование тега</p>
+          <h2 data-character-tag-rename-title>Переименовать тег</h2>
+        </div>
+        <button type="button" data-close-character-tag-rename aria-label="Закрыть переименование">×</button>
+      </div>
+      <label>
+        Новое название
+        <input type="text" data-character-tag-rename-input aria-label="Новое название тега">
+      </label>
+      <div class="upload-modal-actions">
+        <button type="button" data-close-character-tag-rename>Отмена</button>
+        <button class="audio-secondary-button map-tag-rename-save-button taxonomy-rename-save-button" type="button" data-save-character-tag-rename>Сохранить</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="map-modal rule-tag-order-modal" data-character-tag-order-modal aria-hidden="true">
+  <div class="map-modal-backdrop" data-close-character-tag-order></div>
+  <section class="map-modal-dialog rule-tag-order-dialog" role="dialog" aria-modal="true" aria-label="Упорядочить теги NPC">
+    <div class="map-modal-form">
+      <div class="map-modal-heading">
+        <div>
+          <p class="kicker">Теги NPC</p>
+          <h2>Упорядочить теги</h2>
+        </div>
+        <button type="button" data-close-character-tag-order aria-label="Закрыть упорядочивание">×</button>
+      </div>
+      <p class="rule-order-help">Перетащите теги в нужном порядке. Сервисный тег “{{ required_tags[0] }}” всегда останется последним.</p>
+      <div class="rule-order-list" data-character-order-modal-list>
+        {% for tag in tags %}
+          {% if tag not in required_tags %}
+            <div class="rule-order-item" draggable="true" data-character-order-modal-item data-character-tag="{{ tag }}">
+              <span class="rule-order-number" data-rule-order-number>{{ loop.index }}</span>
+              <span class="tag-drag-handle" aria-hidden="true">↕</span>
+              <strong>{{ tag }}</strong>
+            </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+      <div class="upload-modal-actions">
+        <button type="button" data-close-character-tag-order>Отмена</button>
+        <button type="button" data-save-character-tag-order>Сохранить порядок</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="map-modal rule-tag-delete-modal" data-character-tag-delete-modal aria-hidden="true">
+  <div class="map-modal-backdrop" data-close-character-tag-delete></div>
+  <section class="map-modal-dialog rule-tag-order-dialog" role="dialog" aria-modal="true" aria-label="Подтвердить удаление тега NPC">
+    <div class="map-modal-form">
+      <div class="map-modal-heading">
+        <div>
+          <p class="kicker">Удаление тега</p>
+          <h2 data-character-tag-delete-title>Удалить тег?</h2>
+        </div>
+        <button type="button" data-close-character-tag-delete aria-label="Закрыть подтверждение">×</button>
+      </div>
+      <p class="rule-order-help" data-character-tag-delete-message>NPC без других тегов будут перенесены в сервисный тег.</p>
+      <div class="upload-modal-actions rule-delete-confirm-actions">
+        <button type="button" data-close-character-tag-delete>Отмена</button>
+        <button class="danger-button" type="button" data-confirm-character-tag-delete-action>Удалить тег</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+{% if all_characters %}
+  <form class="bulk-delete-form" action="{{ url_for('delete_characters') }}" method="post" data-character-bulk-delete-form hidden>
+    <input type="hidden" name="campaign_slug" value="{{ campaign.slug }}">
+    <input type="hidden" name="return_search" value="{{ search }}">
+    <input type="hidden" name="return_page" value="{{ pagination.page }}">
+    <input type="hidden" name="return_per_page" value="{{ pagination.per_page }}">
+    {% for tag in selected_tags %}
+      <input type="hidden" name="return_tag" value="{{ tag }}">
+    {% endfor %}
+    {% for tag in excluded_tags %}
+      <input type="hidden" name="return_exclude_tag" value="{{ tag }}">
+    {% endfor %}
+    <div class="bulk-delete-bar" data-character-bulk-delete-bar hidden>
+      <strong><span data-character-selected-count>0</span> выбрано</strong>
+      <button type="button" data-clear-character-selection>Снять выбор</button>
+      <button class="danger-button hold-delete-button" type="button" data-character-bulk-delete-button data-hold-submit disabled style="--hold-progress: 0">
+        <span data-hold-delete-label>Удалить выбранных</span>
+      </button>
+    </div>
+    <div data-character-bulk-delete-inputs></div>
+  </form>
+
+  <section class="maps-board characters-board" aria-live="polite" data-characters-board data-active-tags="{{ selected_tags | join('||') }}" data-excluded-tags="{{ excluded_tags | join('||') }}" data-service-character-tag="{{ required_tags[0] }}" data-campaign-slug="{{ campaign.slug }}">
+    {% for character in all_characters %}
+      <article class="map-tile character-tile" data-character-tile data-character-name="{{ character.name | lower }}" data-tags="{{ character.tags | join('||') }}">
+        <label class="map-select-check">
+          <input type="checkbox" name="character_ids" value="{{ character.id }}" data-character-select>
+          <span>Выбрать</span>
+        </label>
+        <div class="map-image-wrap character-image-wrap">
+          <img src="{{ character.thumbnail_url }}" alt="{{ character.name }}" loading="lazy" decoding="async">
+          <div class="map-hover-actions character-hover-actions">
+            {% if settings.demo.enabled %}
+              <button class="map-action-button demo-show-button" type="button" data-demo-show data-demo-kind="character" data-demo-id="{{ character.id }}" data-demo-campaign="{{ campaign.slug }}" aria-label="Показать NPC {{ character.name }} на экране демонстрации" title="Показать игрокам"><span class="demo-monitor-icon" aria-hidden="true"></span></button>
+            {% endif %}
+            <button class="map-action-button" type="button" data-copy-character-art data-copy-foundry-path="{{ character.foundry_path }}" aria-label="Скопировать Foundry-путь арта {{ character.name }}" title="Скопировать путь для Foundry">⛓</button>
+            <button class="map-action-button info-action-button" type="button" data-open-character-modal="{{ character.id }}" data-mode="view" aria-label="Открыть карточку {{ character.name }}" data-view-label="i" data-edit-label="⚙">i</button>
+          </div>
+        </div>
+
+        <div class="map-caption character-caption">
+          <div>
+            <strong>{{ character.name }}</strong>
+            <span>{{ character.tags | join(" · ") }}</span>
+          </div>
+          <button class="map-action-button map-image-copy-button" type="button" data-copy-character-image data-copy-image-url="{{ url_for('copy_character_image', character_id=character.id) }}" data-browser-image-url="{{ character.url }}" aria-label="Скопировать изображение {{ character.name }}" title="Скопировать изображение">
+            <span class="map-image-copy-icon" aria-hidden="true"></span>
+          </button>
+        </div>
+      </article>
+    {% endfor %}
+  </section>
+  <section class="empty-state maps-empty character-inline-empty" data-character-client-empty hidden>
+    <strong>NPC не найдены.</strong>
+    <span>Измените поиск, сбросьте фильтры или уберите исключающие теги.</span>
+  </section>
+  <nav class="pagination" aria-label="Страницы NPC">
+    <span>Показано {{ all_characters | length }} из {{ pagination.total }} · страница {{ pagination.page }} / {{ pagination.total_pages }}</span>
+    <div>
+      {% if pagination.has_prev %}
+        <a href="{{ url_for('characters_page', campaign=campaign.slug, tag=selected_tags, exclude_tag=excluded_tags, q=search, page=pagination.prev_page, per_page=pagination.per_page) }}" data-character-dynamic-link>← Назад</a>
+      {% else %}
+        <span class="is-disabled">← Назад</span>
+      {% endif %}
+
+      {% if pagination.has_next %}
+        <a href="{{ url_for('characters_page', campaign=campaign.slug, tag=selected_tags, exclude_tag=excluded_tags, q=search, page=pagination.next_page, per_page=pagination.per_page) }}" data-character-dynamic-link>Вперёд →</a>
+      {% else %}
+        <span class="is-disabled">Вперёд →</span>
+      {% endif %}
+    </div>
+  </nav>
+{% elif all_characters_count %}
+  <section class="empty-state maps-empty">
+    <strong>NPC не найдены.</strong>
+    <span>Сбросьте фильтры, уберите исключающие теги или попробуйте другое имя.</span>
+  </section>
+{% else %}
+  <section class="empty-state maps-empty">
+    <strong>NPC пока нет.</strong>
+    <span>Перетащите арты в область загрузки выше, и они появятся здесь плиткой.</span>
+  </section>
+{% endif %}
+
+{% for character in all_characters %}
+  {{ character_modal(character) }}
+{% endfor %}
+</div>
+
+<div class="upload-modal" data-character-upload-modal aria-hidden="true">
+  <div class="upload-modal-backdrop" data-close-character-upload-modal></div>
+  <section class="upload-modal-dialog" role="dialog" aria-modal="true" aria-label="Теги для загружаемых NPC">
+    <div class="map-modal-heading">
+      <div>
+        <p class="kicker" data-character-upload-mode-kicker>Пакетная загрузка</p>
+        <h2 data-character-upload-mode-title>Назначьте теги всем выбранным NPC</h2>
+      </div>
+      <button type="button" data-close-character-upload-modal aria-label="Закрыть">×</button>
+    </div>
+    <p data-character-upload-mode-description>Выберите теги, которые будут применены ко всем загружаемым изображениям. Если ничего не выбрать, NPC попадут в “Неотсортированные”.</p>
+    <label class="upload-single-title" data-character-single-title-wrap hidden>
+      Имя NPC (для одного изображения)
+      <input class="upload-tags-input" type="text" data-character-single-title placeholder="По умолчанию будет имя файла">
+    </label>
+    <input class="upload-tags-input" type="text" data-upload-character-tags-text placeholder="Например: Союзники, Культ, Город">
+    <input class="tag-picker-search" type="search" placeholder="Найти тег" data-character-tag-search>
+    <div class="map-modal-tags">
+      {% for tag in tags %}
+        {% if tag not in required_tags %}
+          <button type="button" data-upload-character-tag="{{ tag }}">{{ tag }}</button>
+        {% endif %}
+      {% endfor %}
+    </div>
+    <div class="upload-modal-actions">
+      <button type="button" data-close-character-upload-modal>Отмена</button>
+      <button type="button" data-confirm-character-upload>Загрузить с этими тегами</button>
+    </div>
+  </section>
+</div>
+
+<div class="copy-toast" data-character-copy-toast>Текст скопирован</div>
+
+{% endblock %}
+
+{% block scripts %}
+  <script src="{{ url_for('static', filename='js/characters.js', v='character-tag-rename-1') }}"></script>
+{% endblock %}

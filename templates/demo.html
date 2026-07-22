@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Режим демонстрации - {{ app_name }}</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/favicon.svg') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css', v='demo-mode-6') }}">
+</head>
+<body class="page demo-page">
+  <main class="demo-screen" data-demo-screen>
+    <section class="demo-placeholder" data-demo-placeholder>
+      <img src="{{ url_for('static', filename='img/favicon.svg') }}" alt="" decoding="async">
+      <p class="kicker">Режим демонстрации</p>
+      <h1>Экран готов</h1>
+      <p>Выберите карту, раздат, правило или NPC на экране мастера.</p>
+    </section>
+
+    <section class="demo-content" data-demo-content hidden aria-live="polite">
+      <div class="demo-content-head">
+        <p class="kicker" data-demo-subtitle></p>
+        <h1 data-demo-title></h1>
+        <div class="demo-meta" data-demo-meta></div>
+      </div>
+      <div class="demo-body" data-demo-body></div>
+    </section>
+  </main>
+  {% if demo_enabled %}
+    <script src="{{ url_for('static', filename='js/demo-screen.js', v='demo-mode-6') }}"></script>
+  {% endif %}
+</body>
+</html>

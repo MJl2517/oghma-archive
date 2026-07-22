@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}{{ section.title }} - {{ app_name }}{% endblock %}
+
+{% block content %}
+<section class="section-hero accent-{{ section.accent }}">
+  <a class="back-link" href="{{ url_for('campaign_detail', slug=campaign.slug) if campaign else url_for('index') }}">← {{ campaign.name if campaign else "Главная" }}</a>
+  <span class="card-icon icon-{{ section.icon }}" aria-hidden="true"></span>
+  <p class="kicker">{{ section.eyebrow }}</p>
+  <h1>{{ section.title }}</h1>
+  <p>{{ section.description }}</p>
+
+  <div class="placeholder-panel">
+    {% if campaign %}
+      <strong>Контекст кампейна: {{ campaign.name }}</strong>
+      <div class="path-copy">
+        <span>Файлы этого раздела будут храниться внутри</span>
+        <form class="path-open-form path-open-form-inline" action="{{ url_for('open_campaign_section_folder', slug=campaign.slug, folder=section.slug) }}" method="post" data-local-job-form>
+          <button class="inline-path-button" type="submit">data/campaigns/{{ campaign.slug }}/{{ section.slug }}</button>
+        </form>
+        <span>рядом с остальными материалами кампейна.</span>
+      </div>
+    {% else %}
+      <div class="path-copy path-copy-title">
+        <strong>Общий архив:</strong>
+        <form class="path-open-form path-open-form-inline" action="{{ url_for('open_folder_route') }}" method="post">
+          <input type="hidden" name="folder" value="shared:{{ section.slug }}">
+          <button class="inline-path-button" type="submit">data/shared/{{ section.slug }}</button>
+        </form>
+      </div>
+      <span>Сюда пойдут материалы, которые можно использовать в любом кампейне.</span>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

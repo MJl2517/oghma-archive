@@ -1,0 +1,477 @@
+{% extends "base.html" %}
+
+{% set nav_sections = campaign_sections %}
+
+{% macro return_state() %}
+  {% for domain in selected_domains %}<input type="hidden" name="return_domain" value="{{ domain }}">{% endfor %}
+  {% for domain in excluded_domains %}<input type="hidden" name="return_exclude_domain" value="{{ domain }}">{% endfor %}
+  {% for alignment in selected_alignments %}<input type="hidden" name="return_alignment" value="{{ alignment }}">{% endfor %}
+  {% for alignment in excluded_alignments %}<input type="hidden" name="return_exclude_alignment" value="{{ alignment }}">{% endfor %}
+  {% for rank in selected_ranks %}<input type="hidden" name="return_rank" value="{{ rank }}">{% endfor %}
+  {% for rank in excluded_ranks %}<input type="hidden" name="return_exclude_rank" value="{{ rank }}">{% endfor %}
+  {% for pantheon in selected_pantheons %}<input type="hidden" name="return_pantheon" value="{{ pantheon }}">{% endfor %}
+  {% for pantheon in excluded_pantheons %}<input type="hidden" name="return_exclude_pantheon" value="{{ pantheon }}">{% endfor %}
+  <input type="hidden" name="return_search" value="{{ search }}">
+{% endmacro %}
+
+{% macro god_tag_select(label, name, values, selected_values, multiple=False, placeholder="Выберите") %}
+  {% set selected_clean = selected_values | default([]) | reject('equalto', '') | list %}
+  <label class="god-tag-select-label">
+    {{ label }}
+    <div class="god-tag-select" data-god-tag-select data-god-tag-multiple="{{ 'true' if multiple else 'false' }}">
+      <input type="hidden" name="{{ name }}" value="{{ selected_clean | join(', ') }}" data-god-tag-value>
+      <button class="god-tag-select-button" type="button" data-god-tag-select-button aria-haspopup="listbox" aria-expanded="false">
+        <span data-god-tag-select-label>{{ selected_clean | join(', ') or placeholder }}</span>
+        <span aria-hidden="true">⌄</span>
+      </button>
+      <div class="god-tag-select-menu" role="listbox" hidden>
+        <input class="god-tag-select-search" type="search" placeholder="Найти" data-god-tag-search>
+        <div class="god-tag-select-options">
+          {% for value in values %}
+            <button type="button" role="option" data-god-tag-option="{{ value }}" {% if value in selected_clean %}aria-selected="true"{% endif %}>{{ value }}</button>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </label>
+{% endmacro %}
+
+{% macro alignment_dropdown(name, value, include_all=False) %}
+  <div class="god-select" data-god-select>
+    <input type="hidden" name="{{ name }}" value="{{ value }}">
+    <button class="god-select-button" type="button" data-god-select-button aria-haspopup="listbox" aria-expanded="false">
+      <span data-god-select-label>{{ value or "Все" }}</span>
+      <span aria-hidden="true">⌄</span>
+    </button>
+    <div class="god-select-menu" role="listbox" hidden>
+      {% if include_all %}
+        <button type="button" role="option" data-god-select-value="" {% if not value %}aria-selected="true"{% endif %}>Все</button>
+      {% endif %}
+      {% for alignment in alignments %}
+        <button type="button" role="option" data-god-select-value="{{ alignment }}" {% if value == alignment %}aria-selected="true"{% endif %}>{{ alignment }}</button>
+      {% endfor %}
+    </div>
+  </div>
+{% endmacro %}
+
+{% macro god_form(god, action, submit_label, form_id=None, show_actions=True) %}
+  <form class="god-editor-form" action="{{ action }}" method="post" data-god-form{% if form_id %} id="{{ form_id }}"{% endif %}>
+    <input type="hidden" name="campaign_slug" value="{{ campaign.slug }}">
+    {{ return_state() }}
+    <label>
+      Имя
+      <input name="name" value="{{ god.name or '' }}" placeholder="Например: Огма" required>
+    </label>
+    <div class="god-fields-grid">
+      {{ god_tag_select("Мировоззрение", "alignment", alignments, [god.alignment or alignments[0]], False, "Выберите мировоззрение") }}
+      {{ god_tag_select("Пантеон", "pantheon", pantheons, (god.pantheons if god.pantheons is defined and god.pantheons else [god.pantheon]), True, "Выберите пантеоны") }}
+      {{ god_tag_select("Ранг", "rank", ranks, [god.rank], False, "Выберите ранг") }}
+      <label>
+        Титулы
+        <input name="titles" value="{{ god.titles | default([]) | join(', ') }}" placeholder="Например: Высший, Первый Магистр">
+      </label>
+      <label>
+        Символ
+        <input name="symbol" value="{{ god.symbol or '' }}" placeholder="Например: раскрытый свиток">
+      </label>
+      <label>
+        Источник
+        <input name="source" value="{{ god.source or '' }}" placeholder="Книга, ссылка или домашний лор">
+      </label>
+    </div>
+    {{ god_tag_select("Домены", "domains", domains, god.domains | default([]), True, "Выберите домены") }}
+    <label>
+      <span class="markdown-field-title">
+        Описание и заметки
+        <button class="markdown-help-trigger" type="button" data-open-markdown-help title="Подсказка по Markdown">?</button>
+      </span>
+      <textarea name="description" rows="9" placeholder="Догматы, жрецы, отношения с другими богами, культ, святыни...">{{ god.description or '' }}</textarea>
+    </label>
+    {% if show_actions %}<button class="map-modal-save" type="submit">{{ submit_label }}</button>{% endif %}
+  </form>
+{% endmacro %}
+
+{% block title %}Боги - {{ campaign.name }} - {{ app_name }}{% endblock %}
+
+{% block content %}
+<section class="maps-hero gods-hero">
+  <div>
+    <a class="back-link" href="{{ url_for('campaign_detail', slug=campaign.slug) }}">← {{ campaign.name }}</a>
+    <p class="kicker">Пантеон кампейна</p>
+    <h1>Боги</h1>
+    <p class="hero-text">Храните божеств по мировоззрениям, отмечайте домены и открывайте карточку с лором прямо из списка.</p>
+  </div>
+  <div class="gods-hero-actions">
+    <a class="map-hero-action" href="{{ url_for('export_gods', campaign=campaign.slug) }}">Экспорт JSON</a>
+    <form class="god-import-form" action="{{ url_for('import_gods') }}" method="post" enctype="multipart/form-data" data-god-import-form>
+      <input type="hidden" name="campaign_slug" value="{{ campaign.slug }}">
+      <label class="map-hero-action" tabindex="0">
+        Импорт JSON
+        <input type="file" name="gods_file" accept="application/json,.json" data-god-import-input hidden>
+      </label>
+    </form>
+    <form class="hero-folder-badge" action="{{ url_for('open_campaign_section_folder', slug=campaign.slug, folder='gods') }}" method="post" data-local-job-form>
+      <button type="submit">data/campaigns/{{ campaign.slug }}/gods</button>
+    </form>
+  </div>
+</section>
+
+<div data-gods-dynamic>
+<section class="notes-search-panel gods-search-panel" data-gods-page data-active-domains="{{ selected_domains | join('||') }}" data-excluded-domains="{{ excluded_domains | join('||') }}" data-active-alignments="{{ selected_alignments | join('||') }}" data-excluded-alignments="{{ excluded_alignments | join('||') }}" data-active-ranks="{{ selected_ranks | join('||') }}" data-excluded-ranks="{{ excluded_ranks | join('||') }}" data-active-pantheons="{{ selected_pantheons | join('||') }}" data-excluded-pantheons="{{ excluded_pantheons | join('||') }}">
+  <form class="page-search-panel page-search-form notes-filter-form notes-filter-form-wide gods-filter-row" action="{{ url_for('gods_page') }}" method="get">
+    <input type="hidden" name="campaign" value="{{ campaign.slug }}">
+    <label class="notes-search-main page-search-label">
+      Поиск
+      <input class="page-search-input" name="q" value="{{ search }}" type="search" placeholder="Имя, пантеон, символ, домен...">
+    </label>
+    <button class="god-filter-toggle" type="button" data-toggle-god-filters aria-expanded="{{ 'true' if selected_alignments or excluded_alignments or selected_domains or excluded_domains or selected_ranks or excluded_ranks or selected_pantheons or excluded_pantheons else 'false' }}">
+      Фильтр
+      {% set god_filter_count = selected_alignments|length + excluded_alignments|length + selected_domains|length + excluded_domains|length + selected_ranks|length + excluded_ranks|length + selected_pantheons|length + excluded_pantheons|length %}
+      {% if god_filter_count %}<span>{{ god_filter_count }}</span>{% endif %}
+    </button>
+    {% for domain in selected_domains %}<input type="hidden" name="domain" value="{{ domain }}">{% endfor %}
+    {% for domain in excluded_domains %}<input type="hidden" name="exclude_domain" value="{{ domain }}">{% endfor %}
+    {% for alignment in selected_alignments %}<input type="hidden" name="alignment" value="{{ alignment }}">{% endfor %}
+    {% for alignment in excluded_alignments %}<input type="hidden" name="exclude_alignment" value="{{ alignment }}">{% endfor %}
+    {% for rank in selected_ranks %}<input type="hidden" name="rank" value="{{ rank }}">{% endfor %}
+    {% for rank in excluded_ranks %}<input type="hidden" name="exclude_rank" value="{{ rank }}">{% endfor %}
+    {% for pantheon in selected_pantheons %}<input type="hidden" name="pantheon" value="{{ pantheon }}">{% endfor %}
+    {% for pantheon in excluded_pantheons %}<input type="hidden" name="exclude_pantheon" value="{{ pantheon }}">{% endfor %}
+    <div class="note-filter-actions">
+      <button type="submit">Применить</button>
+      <a href="{{ url_for('gods_page', campaign=campaign.slug) }}" data-gods-reset-filters>Сбросить</a>
+    </div>
+  </form>
+
+  <div class="god-filter-groups" data-god-filter-panel aria-label="Фильтры богов" {% if not (selected_alignments or excluded_alignments or selected_domains or excluded_domains or selected_ranks or excluded_ranks or selected_pantheons or excluded_pantheons) %}hidden{% endif %}>
+    <section class="god-filter-group">
+      <div class="map-tools-heading">
+        <div>
+          <p class="kicker">Мировоззрение</p>
+        </div>
+        <button class="tag-edit-toggle" type="button" data-toggle-god-category-editor="alignment" aria-expanded="false" title="Редактировать мировоззрения">⚙</button>
+      </div>
+      <div class="tag-filter-list rule-filter-list">
+        {% for alignment in alignments %}
+          <span class="rule-filter-chip {% if alignment in selected_alignments %}is-included{% endif %}{% if alignment in excluded_alignments %} is-excluded{% endif %}" data-god-filter-item data-god-filter-group="alignment" data-god-filter-value="{{ alignment }}">
+            <button type="button" data-god-toggle-filter="alignment" data-god-toggle-value="{{ alignment }}" aria-label="Показать богов с мировоззрением {{ alignment }}">{{ alignment }}</button>
+            <button type="button" data-god-exclude-filter="alignment" data-god-exclude-value="{{ alignment }}" aria-label="Исключить мировоззрение {{ alignment }}">−</button>
+          </span>
+        {% endfor %}
+      </div>
+      <div class="tag-editor-panel" data-god-category-editor="alignment" hidden>
+        <form class="tag-create-form rule-category-create-form" action="{{ url_for('add_god_filter_value') }}" method="post" data-god-category-create-form>
+          <input type="hidden" name="campaign_slug" value="{{ campaign.slug }}">
+          <input type="hidden" name="category" value="alignment">
+          {{ return_state() }}
+          <label>Новое мировоззрение<input name="value" placeholder="Например: истинно-нейтральное" required></label>
+          <button type="submit">Создать</button>
+        </form>
+        <div class="tag-delete-list rule-tag-order-list" data-god-category-order-list="alignment">
+          {% for alignment in alignments %}
+            <form action="{{ url_for('delete_god_filter_value') }}" method="post" draggable="true" data-god-category-order-item data-god-category="alignment" data-god-category-value="{{ alignment }}">
+              <input type="hidden" name="campaign_slug" value="{{ campaign.slug }}">
+              <input type="hidden" name="category" value="alignment">
+              <input type="hidden" name="value" value="{{ alignment }}">
+              {{ return_state() }}
+              <span>{{ alignment }}</span>
+              {% if alignment == "Не указано" %}<button type="button" disabled>Сервисный</button>{% else %}<button class="hold-delete-button" type="button" data-hold-submit style="--hold-progress: 0"><span data-hold-delete-label>Удалить</span></button>{% endif %}
+            </form>
+          {% endfor %}
+        </div>
+        <button class="rule-order-open-button" type="button" data-save-god-category-order="alignment">Сохранить порядок</button>
+      </div>
+    </section>
+
+    <section class="god-filter-group">
+      <div class="map-tools-heading">
+        <div>
+          <p class="kicker">Домены</p>
+        </div>
+        <button class="tag-edit-toggle" type="button" data-toggle-god-category-editor="domain" aria-expanded="false" title="Редактировать домены">⚙</button>
+      </div>
+      <div class="tag-filter-list rule-filter-list" data-god-domain-filters>
+        {% for domain in domains %}
+          <span class="rule-filter-chip {% if domain in selected_domains %}is-included{% endif %}{% if domain in excluded_domains %} is-excluded{% endif %}" data-god-domain-item data-god-domain="{{ domain }}">
+            <button type="button" data-god-include-domain="{{ domain }}" aria-label="Показать богов с доменом {{ domain }}">{{ domain }}</button>
+            <button type="button" data-god-exclude-domain="{{ domain }}" aria-label="Исключить домен {{ domain }}">−</button>
+          </span>
+        {% endfor %}
+      </div>
+      <div class="tag-editor-panel" data-god-category-editor="domain" hidden>
+        <form class="tag-create-form rule-category-create-form" action="{{ url_for('add_god_filter_value') }}" method="post" data-god-category-create-form>
+          <input type="hidden" name="campaign_slug" value="{{ campaign.slug }}">
+          <input type="hidden" name="category" value="domain">
+          {{ return_state() }}
+          <label>
+            Новый домен
+            <input name="value" placeholder="Например: Ремесло, Путешествия, Сны" required>
+          </label>
+          <button type="submit">Создать домен</button>
+        </form>
+        <div class="tag-delete-list rule-tag-order-list" data-god-category-order-list="domain">
+          {% for domain in domains %}
+            <form action="{{ url_for('delete_god_filter_value') }}" method="post" draggable="true" data-god-category-order-item data-god-category="domain" data-god-category-value="{{ domain }}">
+              <input type="hidden" name="campaign_slug" value="{{ campaign.slug }}">
+              <input type="hidden" name="category" value="domain">
+              {{ return_state() }}
+              <input type="hidden" name="value" value="{{ domain }}">
+              <span>{{ domain }}</span>
+              <button class="hold-delete-button" type="button" data-hold-submit style="--hold-progress: 0"><span data-hold-delete-label>Удалить</span></button>
+            </form>
+          {% endfor %}
+        </div>
+        <button class="rule-order-open-button" type="button" data-save-god-category-order="domain">Сохранить порядок</button>
+      </div>
+    </section>
+
+    {% if ranks %}
+      <section class="god-filter-group">
+        <div class="map-tools-heading">
+          <div>
+            <p class="kicker">Ранг</p>
+          </div>
+          <button class="tag-edit-toggle" type="button" data-toggle-god-category-editor="rank" aria-expanded="false" title="Редактировать ранги">⚙</button>
+        </div>
+        <div class="tag-filter-list rule-filter-list">
+          {% for rank in ranks %}
+            <span class="rule-filter-chip {% if rank in selected_ranks %}is-included{% endif %}{% if rank in excluded_ranks %} is-excluded{% endif %}" data-god-filter-item data-god-filter-group="rank" data-god-filter-value="{{ rank }}">
+              <button type="button" data-god-toggle-filter="rank" data-god-toggle-value="{{ rank }}" aria-label="Показать богов с рангом {{ rank }}">{{ rank }}</button>
+              <button type="button" data-god-exclude-filter="rank" data-god-exclude-value="{{ rank }}" aria-label="Исключить ранг {{ rank }}">−</button>
+            </span>
+          {% endfor %}
+        </div>
+        <div class="tag-editor-panel" data-god-category-editor="rank" hidden>
+          <form class="tag-create-form rule-category-create-form" action="{{ url_for('add_god_filter_value') }}" method="post" data-god-category-create-form>
+            <input type="hidden" name="campaign_slug" value="{{ campaign.slug }}">
+            <input type="hidden" name="category" value="rank">
+            {{ return_state() }}
+            <label>Новый ранг<input name="value" placeholder="Например: дух" required></label>
+            <button type="submit">Создать</button>
+          </form>
+          <div class="tag-delete-list rule-tag-order-list" data-god-category-order-list="rank">
+            {% for rank in ranks %}
+              <form action="{{ url_for('delete_god_filter_value') }}" method="post" draggable="true" data-god-category-order-item data-god-category="rank" data-god-category-value="{{ rank }}">
+                <input type="hidden" name="campaign_slug" value="{{ campaign.slug }}">
+                <input type="hidden" name="category" value="rank">
+                <input type="hidden" name="value" value="{{ rank }}">
+                {{ return_state() }}
+                <span>{{ rank }}</span>
+                <button class="hold-delete-button" type="button" data-hold-submit style="--hold-progress: 0"><span data-hold-delete-label>Удалить</span></button>
+              </form>
+            {% endfor %}
+          </div>
+          <button class="rule-order-open-button" type="button" data-save-god-category-order="rank">Сохранить порядок</button>
+        </div>
+      </section>
+    {% endif %}
+
+    {% if pantheons %}
+      <section class="god-filter-group">
+        <div class="map-tools-heading">
+          <div>
+            <p class="kicker">Пантеоны</p>
+          </div>
+          <button class="tag-edit-toggle" type="button" data-toggle-god-category-editor="pantheon" aria-expanded="false" title="Редактировать пантеоны">⚙</button>
+        </div>
+        <div class="tag-filter-list rule-filter-list">
+          {% for pantheon in pantheons %}
+            <span class="rule-filter-chip {% if pantheon in selected_pantheons %}is-included{% endif %}{% if pantheon in excluded_pantheons %} is-excluded{% endif %}" data-god-filter-item data-god-filter-group="pantheon" data-god-filter-value="{{ pantheon }}">
+              <button type="button" data-god-toggle-filter="pantheon" data-god-toggle-value="{{ pantheon }}" aria-label="Показать богов пантеона {{ pantheon }}">{{ pantheon }}</button>
+              <button type="button" data-god-exclude-filter="pantheon" data-god-exclude-value="{{ pantheon }}" aria-label="Исключить пантеон {{ pantheon }}">−</button>
+            </span>
+          {% endfor %}
+        </div>
+        <div class="tag-editor-panel" data-god-category-editor="pantheon" hidden>
+          <form class="tag-create-form rule-category-create-form" action="{{ url_for('add_god_filter_value') }}" method="post" data-god-category-create-form>
+            <input type="hidden" name="campaign_slug" value="{{ campaign.slug }}">
+            <input type="hidden" name="category" value="pantheon">
+            {{ return_state() }}
+            <label>Новый пантеон<input name="value" placeholder="Например: Домашний пантеон" required></label>
+            <button type="submit">Создать</button>
+          </form>
+          <div class="tag-delete-list rule-tag-order-list" data-god-category-order-list="pantheon">
+            {% for pantheon in pantheons %}
+              <form action="{{ url_for('delete_god_filter_value') }}" method="post" draggable="true" data-god-category-order-item data-god-category="pantheon" data-god-category-value="{{ pantheon }}">
+                <input type="hidden" name="campaign_slug" value="{{ campaign.slug }}">
+                <input type="hidden" name="category" value="pantheon">
+                <input type="hidden" name="value" value="{{ pantheon }}">
+                {{ return_state() }}
+                <span>{{ pantheon }}</span>
+                <button class="hold-delete-button" type="button" data-hold-submit style="--hold-progress: 0"><span data-hold-delete-label>Удалить</span></button>
+              </form>
+            {% endfor %}
+          </div>
+          <button class="rule-order-open-button" type="button" data-save-god-category-order="pantheon">Сохранить порядок</button>
+        </div>
+      </section>
+    {% endif %}
+  </div>
+</section>
+
+<section class="gods-actions-panel">
+  <button class="map-modal-save" type="button" data-open-god-create>Добавить божество</button>
+  {% if all_gods %}
+    <button class="select-mode-toggle" type="button" data-toggle-god-select-mode aria-expanded="false">Выбрать богов</button>
+  {% endif %}
+  {% if all_gods %}
+    <form action="{{ url_for('delete_all_gods') }}" method="post">
+      <input type="hidden" name="campaign_slug" value="{{ campaign.slug }}">
+      {{ return_state() }}
+      <button class="danger-button danger-button-compact hold-delete-button" type="button" data-hold-submit style="--hold-progress: 0">
+        <span data-hold-delete-label>Удалить всех богов</span>
+      </button>
+    </form>
+  {% endif %}
+</section>
+
+{% if gods %}
+  <form class="bulk-delete-form" action="{{ url_for('delete_gods') }}" method="post" data-god-bulk-delete-form hidden>
+    <input type="hidden" name="campaign_slug" value="{{ campaign.slug }}">
+    {{ return_state() }}
+    <div class="bulk-delete-bar" data-god-bulk-delete-bar hidden>
+      <strong><span data-god-selected-count>0</span> выбрано</strong>
+      <button type="button" data-god-clear-selection>Снять выбор</button>
+      <button class="danger-button hold-delete-button" type="button" data-god-bulk-delete-button data-hold-submit disabled style="--hold-progress: 0">
+        <span data-hold-delete-label>Удалить выбранных богов</span>
+      </button>
+    </div>
+    <div data-god-bulk-delete-inputs></div>
+  </form>
+{% endif %}
+
+{% if god_groups %}
+  <section class="gods-board" aria-label="Боги по мировоззрениям">
+    {% for group in god_groups %}
+      <div class="god-alignment-group">
+        <div class="god-alignment-heading">
+          <p class="kicker">{{ group.gods | length }} записей</p>
+          <h2>{{ group.alignment }}</h2>
+        </div>
+        <div class="god-card-grid">
+          {% for god in group.gods %}
+            <article class="god-card" data-god-card="{{ god.id }}">
+              <label class="god-select-check">
+                <input type="checkbox" name="god_ids" value="{{ god.id }}" data-god-select>
+                <span>Выбрать</span>
+              </label>
+              <button class="god-card-main" type="button" data-open-god-view="{{ god.id }}" data-god-view-url="{{ url_for('gods_page', campaign=campaign.slug, q=search, alignment=selected_alignment, domain=selected_domains, exclude_domain=excluded_domains, rank=selected_ranks, pantheon=selected_pantheons, god=god.id) }}">
+                <span class="god-card-kicker">{{ god.rank or god.pantheon or "Пантеон не указан" }}</span>
+                <strong>{{ god.name }}</strong>
+                {% if god.english_name %}<span class="god-card-kicker">[{{ god.english_name }}]</span>{% endif %}
+                <span class="god-symbol">{{ god.symbol or "Символ не указан" }}</span>
+                <span class="note-row-tags">{{ god.domains | join(" · ") or "Домены не указаны" }}</span>
+              </button>
+              <div class="god-card-actions">
+                {% if settings.demo.enabled %}
+                  <button class="map-action-button god-demo-action" type="button" data-demo-show data-demo-kind="god" data-demo-id="{{ god.id }}" data-demo-campaign="{{ campaign.slug }}" aria-label="Показать божество {{ god.name }} на экране демонстрации" title="Показать игрокам"><span class="demo-monitor-icon" aria-hidden="true"></span></button>
+                {% endif %}
+                <button class="map-action-button god-edit-action" type="button" data-open-god-edit="{{ god.id }}" data-god-edit-url="{{ url_for('gods_page', campaign=campaign.slug, q=search, alignment=selected_alignment, domain=selected_domains, exclude_domain=excluded_domains, rank=selected_ranks, pantheon=selected_pantheons, edit=god.id) }}" aria-label="Редактировать {{ god.name }}"><span aria-hidden="true">⚙</span></button>
+              </div>
+            </article>
+          {% endfor %}
+        </div>
+      </div>
+    {% endfor %}
+  </section>
+{% elif all_gods %}
+  <section class="empty-state maps-empty">
+    <strong>Боги не найдены.</strong>
+    <span>Измените поиск, мировоззрение или фильтры доменов.</span>
+  </section>
+{% else %}
+  <section class="empty-state maps-empty">
+    <strong>Пантеон пока пуст.</strong>
+    <span>Добавьте первое божество, чтобы начать каталог кампейна.</span>
+  </section>
+{% endif %}
+
+{% if active_god %}
+  {% set god = active_god %}
+  <div class="map-modal god-view-modal is-open" data-god-view-modal="{{ god.id }}" aria-hidden="false">
+    <div class="map-modal-backdrop" data-close-god-modal></div>
+    <section class="map-modal-dialog god-modal-dialog" role="dialog" aria-modal="true" aria-label="{{ god.name }}">
+      <div class="map-modal-form">
+        <div class="map-modal-heading">
+          <div>
+            <p class="kicker">{{ god.alignment }}</p>
+            <h2>{{ god.name }}</h2>
+            {% if god.english_name %}<p class="god-english-name">{{ god.english_name }}</p>{% endif %}
+          </div>
+          <div class="god-modal-heading-actions">
+            <button class="favorite-toggle-button" type="button" data-favorite-toggle data-favorite-type="god" data-favorite-id="{{ god.id }}" data-favorite-campaign="{{ campaign.slug }}" data-favorite-title="{{ god.name }}" aria-label="Добавить бога в избранное" title="Избранное">☆</button>
+            <button type="button" data-close-god-modal aria-label="Закрыть карточку">×</button>
+          </div>
+        </div>
+        <div class="god-detail-grid">
+          <div><span>Пантеон</span><strong>{{ god.pantheons | join(", ") or god.pantheon or "Не указан" }}</strong></div>
+          <div><span>Ранг</span><strong>{{ god.rank or "Не указан" }}</strong></div>
+          <div><span>Титулы</span><strong>{{ god.titles | join(", ") or "Не указаны" }}</strong></div>
+          <div><span>Символ</span><strong>{{ god.symbol or "Не указан" }}</strong></div>
+          <div><span>Источник</span><strong>{{ god.source or "Не указан" }}</strong></div>
+          <div><span>Домены</span><strong>{{ god.domains | join(", ") or "Не указаны" }}</strong></div>
+        </div>
+        <article class="note-preview-panel note-preview-panel-readable god-description" data-god-scroll-handoff>
+          <p class="kicker">Информация из других источников</p>
+          {{ render_note_content(god.description or "Описание пока не добавлено.") }}
+        </article>
+        <button class="map-modal-save" type="button" data-open-god-edit="{{ god.id }}" data-god-edit-url="{{ url_for('gods_page', campaign=campaign.slug, q=search, alignment=selected_alignment, domain=selected_domains, exclude_domain=excluded_domains, rank=selected_ranks, pantheon=selected_pantheons, edit=god.id) }}">Редактировать</button>
+      </div>
+    </section>
+  </div>
+{% endif %}
+
+{% if active_edit_god %}
+  {% set god = active_edit_god %}
+  <div class="map-modal god-edit-modal is-open" data-god-edit-modal="{{ god.id }}" aria-hidden="false">
+    <div class="map-modal-backdrop" data-close-god-modal></div>
+    <section class="map-modal-dialog god-modal-dialog" role="dialog" aria-modal="true" aria-label="Редактировать {{ god.name }}">
+      <div class="map-modal-form god-edit-modal-form">
+        <div class="map-modal-heading">
+          <div>
+            <p class="kicker">Правка божества</p>
+            <h2>{{ god.name }}</h2>
+          </div>
+          <div class="god-modal-heading-actions">
+            <button class="favorite-toggle-button" type="button" data-favorite-toggle data-favorite-type="god" data-favorite-id="{{ god.id }}" data-favorite-campaign="{{ campaign.slug }}" data-favorite-title="{{ god.name }}" aria-label="Добавить бога в избранное" title="Избранное">☆</button>
+            <button type="button" data-close-god-modal aria-label="Закрыть редактор">×</button>
+          </div>
+        </div>
+        {{ god_form(god, url_for('update_god', god_id=god.id), 'Сохранить божество', 'god-edit-form-' ~ god.id, False) }}
+      </div>
+      <div class="god-editor-actions-bar">
+        <button class="map-modal-save" type="submit" form="god-edit-form-{{ god.id }}">Сохранить божество</button>
+        <form class="god-editor-delete-form" action="{{ url_for('delete_gods') }}" method="post">
+          <input type="hidden" name="campaign_slug" value="{{ campaign.slug }}">
+          {{ return_state() }}
+          <input type="hidden" name="god_ids" value="{{ god.id }}">
+          <button class="danger-button danger-button-compact hold-delete-button god-editor-trash-button" type="button" data-hold-submit style="--hold-progress: 0" aria-label="Удалить божество" title="Удалить божество">
+            <span data-hold-delete-label aria-hidden="true">Удалить</span>
+          </button>
+        </form>
+      </div>
+    </section>
+  </div>
+{% endif %}
+</div>
+
+<div class="map-modal god-create-modal" data-god-create-modal aria-hidden="true">
+  <div class="map-modal-backdrop" data-close-god-modal></div>
+  <section class="map-modal-dialog god-modal-dialog" role="dialog" aria-modal="true" aria-label="Добавить божество">
+    <div class="map-modal-form">
+      <div class="map-modal-heading">
+        <div>
+          <p class="kicker">Новое божество</p>
+          <h2>Добавить бога</h2>
+        </div>
+        <button type="button" data-close-god-modal aria-label="Закрыть создание">×</button>
+      </div>
+      {{ god_form({"alignment": alignments[0], "domains": []}, url_for('create_god'), 'Создать божество') }}
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{{ url_for('static', filename='js/gods.js', v='1') }}"></script>
+{% endblock %}

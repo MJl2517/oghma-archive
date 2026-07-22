@@ -1,0 +1,393 @@
+{% extends "base.html" %}
+
+{% block title %}Генераторы - {{ app_name }}{% endblock %}
+
+{% macro generator_return_fields() %}
+  {% for tag in selected_tags %}<input type="hidden" name="return_tag" value="{{ tag }}">{% endfor %}
+  {% for tag in excluded_tags %}<input type="hidden" name="return_exclude_tag" value="{{ tag }}">{% endfor %}
+  <input type="hidden" name="return_category" value="{{ selected_category }}">
+  <input type="hidden" name="return_search" value="{{ search }}">
+  <input type="hidden" name="return_sort" value="{{ sort }}">
+  <input type="hidden" name="return_page" value="{{ pagination.page }}">
+  <input type="hidden" name="return_per_page" value="{{ pagination.per_page }}">
+{% endmacro %}
+
+{% macro generator_editor_rows(rows) %}
+  <div class="generator-table-shell">
+    <div class="generator-table-toolbar">
+      <span data-generator-range-hint>Рабочий диапазон: -</span>
+      <button class="audio-secondary-button" type="button" data-generator-fill-unit-ranges>Распределить значения</button>
+    </div>
+    <div class="generator-row-editor" data-generator-rows>
+      <div class="generator-table-editor-head" aria-hidden="true">
+        <span>Диапазон</span>
+        <span>Результат</span>
+        <span></span>
+      </div>
+      {% for row in rows %}
+        <div class="generator-edit-row" data-generator-edit-row>
+          <input type="hidden" name="row_id" value="{{ row.id }}">
+          <label class="generator-range-field"><span>Диапазон</span><input name="row_range" value="{% if row.min == row.max %}{{ row.min }}{% else %}{{ row.min }}-{{ row.max }}{% endif %}" placeholder="1 или 2-4" required></label>
+          <label class="generator-result-field"><span>Результат</span><textarea name="row_result" rows="2" required>{{ row.result_markdown }}</textarea></label>
+          <button class="audio-icon-button" type="button" data-remove-generator-row aria-label="Удалить строку" title="Удалить">×</button>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+{% endmacro %}
+
+{% block content %}
+<div data-generators-page>
+  <section class="maps-hero generators-hero">
+    <div>
+      <a class="back-link" href="{{ url_for('index') }}">← Главная</a>
+      <p class="kicker">Таблицы и случайности</p>
+      <h1>Генераторы</h1>
+      <p class="hero-text">Собирайте мастерские таблицы для погоды, слухов, имен, находок и событий. Формула кубов определяет итог, диапазоны ведут к markdown-результатам.</p>
+    </div>
+    <div class="resource-quick-panel">
+      <p class="kicker">Быстрое добавление</p>
+      <button class="audio-primary-button" type="button" data-open-generator-modal>Новый генератор</button>
+      <div class="generator-preset-grid" aria-label="Быстрые формулы генераторов">
+        {% for preset in ["1d4", "1d6", "1d8", "1d12", "1d20", "1d100", "2d6"] %}
+          <button class="audio-secondary-button" type="button" data-open-generator-preset="{{ preset }}">{{ preset }}</button>
+        {% endfor %}
+      </div>
+      <div class="generator-library-actions generator-quick-file-actions" aria-label="Импорт и экспорт всех генераторов">
+        <a class="generator-file-action generator-export-button" href="{{ url_for('export_generators') }}">Экспорт всех генераторов JSON</a>
+        <form class="generator-import-file-form" action="{{ url_for('import_generators') }}" method="post" enctype="multipart/form-data" data-generator-import-file-form>
+          <label class="generator-file-action generator-import-file-button">
+            Импорт всех генераторов из JSON
+            <input type="file" name="generators_file" accept="application/json,.json" data-generator-import-file-input hidden>
+          </label>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <section class="page-search-panel generator-search-panel" aria-label="Поиск генераторов">
+    <form class="page-search-form character-search-form" action="{{ url_for('generators_page') }}" method="get" data-generator-filter-form>
+      {% for tag in selected_tags %}<input type="hidden" name="tag" value="{{ tag }}">{% endfor %}
+      {% for tag in excluded_tags %}<input type="hidden" name="exclude_tag" value="{{ tag }}">{% endfor %}
+      <input type="hidden" name="per_page" value="{{ pagination.per_page }}">
+      <input class="page-search-input" type="search" name="q" value="{{ search }}" placeholder="Поиск генераторов: минимум 3 символа" autocomplete="off" data-generator-search>
+    </form>
+  </section>
+
+  <section class="map-tools audio-tools resources-tools generators-tools" aria-label="Фильтры генераторов">
+    <div class="map-tools-heading">
+      <div>
+        <p class="kicker">Библиотека генераторов</p>
+        <strong>{{ filtered_generators_count }} из {{ all_generators_count }}</strong>
+      </div>
+      <div class="generator-heading-actions">
+        <button class="tag-edit-toggle" type="button" data-toggle-generator-taxonomy aria-expanded="false" title="Редактировать теги">⚙</button>
+      </div>
+    </div>
+
+    <div class="tag-actions generators-filter-controls">
+      <label>
+        Категория
+        <select name="category" data-generator-category-filter>
+          <option value="">Все</option>
+          {% for category in categories %}
+            <option value="{{ category }}" {% if category == selected_category %}selected{% endif %}>{{ category }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        Сортировка
+        <select name="sort" data-generator-sort-filter>
+          {% for value, label in sort_options.items() %}
+            <option value="{{ value }}" {% if value == sort %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        На странице
+        <select name="per_page" data-generator-per-page-filter>
+          {% for option in per_page_options %}
+            <option value="{{ option }}" {% if option == pagination.per_page %}selected{% endif %}>{{ option }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+
+    <div class="rule-filter-panel map-filter-panel" aria-label="Фильтры тегов генераторов">
+      <input class="tag-picker-search" type="search" placeholder="Найти тег в фильтрах" data-generator-filter-tag-search>
+      <div class="tag-filter-list rule-filter-list" data-generator-tag-filters>
+        {% for tag in tags %}
+          <span class="rule-filter-chip {% if tag in selected_tags %}is-included{% endif %}{% if tag in excluded_tags %} is-excluded{% endif %}" data-generator-filter-chip="{{ tag }}">
+            <button type="button" data-generator-include-tag="{{ tag }}">{{ tag }}</button>
+            <button type="button" data-generator-exclude-tag="{{ tag }}" aria-label="Исключить {{ tag }}">−</button>
+          </span>
+        {% endfor %}
+      </div>
+      <div class="tag-actions">
+        <button class="clear-tags" type="button" data-generator-clear-filters>Сбросить фильтры</button>
+        <span class="rule-filter-hint" data-generator-filter-hint>Клик по тегу включает фильтр, кнопка − исключает тег из выдачи.</span>
+      </div>
+    </div>
+
+    <div class="map-modal map-taxonomy-modal audio-taxonomy-modal generator-taxonomy-modal" data-generator-taxonomy-modal aria-hidden="true">
+      <div class="map-modal-backdrop" data-close-generator-taxonomy></div>
+      <section class="map-modal-dialog audio-taxonomy-dialog" role="dialog" aria-modal="true" aria-label="Теги и категории генераторов">
+        <div class="map-modal-form audio-taxonomy-shell">
+          <div class="map-modal-heading">
+            <div>
+              <p class="kicker">Генераторы</p>
+              <h2>Теги и категории</h2>
+            </div>
+            <button type="button" data-close-generator-taxonomy aria-label="Закрыть управление генераторами">×</button>
+          </div>
+          <div class="tag-editor-panel audio-taxonomy-panel" data-generator-taxonomy data-generator-tag-rename-url="{{ url_for('rename_generator_tag') }}" data-generator-category-rename-url="{{ url_for('rename_generator_category') }}">
+            <div class="audio-taxonomy-tabs" role="tablist" aria-label="Раздел управления генераторами">
+              <button class="is-active" type="button" role="tab" id="generator-taxonomy-tab-tags" aria-controls="generator-taxonomy-pane-tags" aria-selected="true" data-generator-taxonomy-tab="tags">Теги</button>
+              <button type="button" role="tab" id="generator-taxonomy-tab-categories" aria-controls="generator-taxonomy-pane-categories" aria-selected="false" data-generator-taxonomy-tab="categories">Категории</button>
+            </div>
+
+            <div class="audio-taxonomy-pane is-active" id="generator-taxonomy-pane-tags" role="tabpanel" aria-labelledby="generator-taxonomy-tab-tags" data-generator-taxonomy-pane="tags">
+              <form action="{{ url_for('add_generator_tag') }}" method="post" data-generator-tag-create-form>
+                <label>
+                  Новый тег
+                  <input name="tag" placeholder="Например: Погода, Лут, Путешествие" required>
+                </label>
+                <button class="audio-secondary-button" type="submit">Создать тег</button>
+              </form>
+              <div class="audio-tag-manager">
+                <label>
+                  Найти тег
+                  <input type="search" placeholder="Начните вводить название" data-generator-tag-manager-search>
+                </label>
+                <div class="audio-tag-delete-grid" aria-label="Удаление тегов генераторов" data-generator-tag-delete-list>
+                  {% for tag in tags if tag not in required_tags %}
+                    <form action="{{ url_for('delete_generator_tag') }}" method="post" data-generator-tag-delete-form data-generator-tag="{{ tag }}">
+                      <input type="hidden" name="tag" value="{{ tag }}">
+                      <div class="audio-tag-row-view">
+                        <span>{{ tag }}</span>
+                        <button class="audio-taxonomy-icon-button" type="button" data-generator-rename-tag="{{ tag }}" aria-label="Переименовать тег {{ tag }}">
+                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4 11.5-11.5Z"/></svg>
+                        </button>
+                        <button class="hold-delete-button" type="button" data-hold-submit data-hold-static-icon style="--hold-progress: 0" aria-label="Удалить тег {{ tag }}">
+                          <span data-hold-delete-label>
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 15h10l1-15"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                          </span>
+                        </button>
+                      </div>
+                    </form>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+
+            <div class="audio-taxonomy-pane" id="generator-taxonomy-pane-categories" role="tabpanel" aria-labelledby="generator-taxonomy-tab-categories" data-generator-taxonomy-pane="categories" hidden>
+              <form action="{{ url_for('add_generator_category') }}" method="post" data-generator-category-create-form>
+                <label>
+                  Новая категория
+                  <input name="category" placeholder="Например: Путешествия, Город, Подземелья" required>
+                </label>
+                <button class="audio-secondary-button" type="submit">Создать категорию</button>
+              </form>
+              <div class="audio-tag-manager">
+                <label>
+                  Найти категорию
+                  <input type="search" placeholder="Начните вводить название" data-generator-category-manager-search>
+                </label>
+                <div class="audio-tag-delete-grid" aria-label="Удаление категорий генераторов" data-generator-category-delete-list>
+                  {% for category in categories %}
+                    <form action="{{ url_for('delete_generator_category') }}" method="post" data-generator-category-delete-form data-generator-category="{{ category }}">
+                      <input type="hidden" name="category" value="{{ category }}">
+                      <div class="audio-tag-row-view">
+                        <span>{{ category }}</span>
+                        <button class="audio-taxonomy-icon-button" type="button" data-generator-rename-category="{{ category }}" aria-label="Переименовать категорию {{ category }}">
+                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4 11.5-11.5Z"/></svg>
+                        </button>
+                        <button class="hold-delete-button" type="button" data-hold-submit data-hold-static-icon style="--hold-progress: 0" aria-label="Удалить категорию {{ category }}">
+                          <span data-hold-delete-label>
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 15h10l1-15"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                          </span>
+                        </button>
+                      </div>
+                    </form>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </section>
+
+  <div class="map-modal rule-tag-rename-modal" data-generator-taxonomy-rename-modal aria-hidden="true">
+    <div class="map-modal-backdrop" data-close-generator-taxonomy-rename></div>
+    <section class="map-modal-dialog rule-tag-order-dialog" role="dialog" aria-modal="true" aria-label="Переименовать тег или категорию генератора">
+      <div class="map-modal-form">
+        <div class="map-modal-heading">
+          <div>
+            <p class="kicker" data-generator-taxonomy-rename-kicker>Переименование</p>
+            <h2 data-generator-taxonomy-rename-title>Переименовать</h2>
+          </div>
+          <button type="button" data-close-generator-taxonomy-rename aria-label="Закрыть переименование">×</button>
+        </div>
+        <label>
+          Новое название
+          <input type="text" data-generator-taxonomy-rename-input aria-label="Новое название">
+        </label>
+        <div class="upload-modal-actions">
+          <button type="button" data-close-generator-taxonomy-rename>Отмена</button>
+          <button class="audio-secondary-button map-tag-rename-save-button taxonomy-rename-save-button" type="button" data-save-generator-taxonomy-rename>Сохранить</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="map-modal generator-modal" data-generator-modal aria-hidden="true">
+    <div class="map-modal-backdrop" data-close-generator-modal></div>
+    <section class="map-modal-dialog form-modal-dialog generator-dialog" role="dialog" aria-modal="true" aria-label="Создать генератор">
+      <form id="generator-create-form" class="map-modal-form form-modal-form generator-form" action="{{ url_for('create_generator') }}" method="post" data-generator-form data-generator-ajax-form>
+        {{ generator_return_fields() }}
+        <input type="hidden" name="tags" value="{{ selected_tags | join(', ') }}" data-generator-tags-input>
+        <div class="map-modal-heading">
+          <div>
+            <p class="kicker">Новая таблица</p>
+            <h2>Генератор</h2>
+          </div>
+          <button type="button" data-close-generator-modal aria-label="Закрыть">×</button>
+        </div>
+        <label>Название <input name="title" placeholder="Погода 1d8" required></label>
+        <label>Формула <input name="dice_expression" value="1d8" placeholder="1d8, 2d6, 1d8+1d4" required></label>
+        <label>
+          Категория
+          <select name="category">
+            {% for category in categories %}<option value="{{ category }}">{{ category }}</option>{% endfor %}
+          </select>
+        </label>
+        <label>Описание <textarea name="description" rows="2"></textarea></label>
+        <div class="audio-tag-picker" data-generator-tag-picker>
+          <span>Теги</span>
+          <div>
+            {% for tag in tags if tag not in required_tags %}
+              <button type="button" data-generator-pick-tag="{{ tag }}" class="{% if tag in selected_tags %}is-active{% endif %}">{{ tag }}</button>
+            {% endfor %}
+          </div>
+        </div>
+        {{ generator_editor_rows([
+          {"id": "", "min": "", "max": "", "result_markdown": ""}
+        ]) }}
+        <div class="upload-modal-actions generator-sticky-actions">
+          <button class="audio-secondary-button" type="button" data-add-generator-row>Добавить строку</button>
+          <button class="audio-secondary-button" type="button" data-open-generator-markdown-import data-generator-action-form="generator-create-form">Распарсить таблицу</button>
+          <span class="generator-action-spacer"></span>
+          <button type="button" data-close-generator-modal>Отмена</button>
+          <button class="audio-primary-button" type="submit">Сохранить</button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  {% if generators %}
+    <form id="generator-delete-form" action="{{ url_for('delete_generators') }}" method="post" data-generator-delete-form data-generator-ajax-form>
+      {{ generator_return_fields() }}
+    </form>
+    <div class="audio-board resources-board generators-board">
+      {% for generator in generators %}
+        <article class="audio-card resource-card generator-card" data-generator-card="{{ generator.id }}">
+          <div class="generator-card-action-rail">
+            <label class="map-select-check audio-select">
+              <input form="generator-delete-form" type="checkbox" name="generator_ids" value="{{ generator.id }}">
+            </label>
+            <button class="audio-icon-button audio-edit-button generator-edit-button" type="button" data-open-generator-edit-modal="{{ generator.id }}" data-generator-edit-url="{{ url_for('edit_generator_fragment', generator_id=generator.id, q=search, category=selected_category, sort=sort, tag=selected_tags, exclude_tag=excluded_tags, page=pagination.page, per_page=pagination.per_page) }}" aria-label="Редактировать {{ generator.title }}" title="Редактировать">✎</button>
+          </div>
+          <div class="audio-card-main resource-card-main">
+            <p class="kicker">{{ generator.category }} · {{ generator.dice_expression }}</p>
+            <h2>{{ generator.title }}</h2>
+            {% if generator.description %}
+              <div class="generator-description-hover">
+                <button class="generator-description-trigger" type="button" aria-label="Показать описание {{ generator.title }}"><span>{{ generator.description.splitlines()[0] | truncate(92, true, "…") }}</span></button>
+                <div class="generator-description-popover" role="tooltip">
+                  <p class="resource-description generator-description">{{ generator.description }}</p>
+                </div>
+              </div>
+            {% endif %}
+            <div class="generator-roll-result" data-generator-roll-result="{{ generator.id }}" hidden></div>
+            <div class="audio-tags">{{ generator.tags | join(" · ") }}</div>
+            <div class="generator-card-actions">
+              <button class="audio-primary-button" type="button" data-roll-generator="{{ generator.id }}" data-roll-url="{{ url_for('roll_generator', generator_id=generator.id) }}">Бросок</button>
+              {% if settings.demo.enabled %}
+                <button class="audio-secondary-button generator-demo-button" type="button" data-demo-show data-demo-kind="generator" data-demo-id="{{ generator.id }}" aria-label="Сгенерировать и показать {{ generator.title }} на экране демонстрации" title="Сгенерировать и показать на экране демонстрации"><span class="demo-monitor-icon" aria-hidden="true"></span></button>
+              {% endif %}
+            </div>
+          </div>
+        </article>
+
+      {% endfor %}
+      <div class="bulk-delete-bar audio-delete-bar">
+        <strong><span data-generator-selected-count>0</span> выбрано</strong>
+        <button class="danger-button danger-button-compact hold-delete-button" form="generator-delete-form" type="button" data-hold-generator-bulk-delete style="--hold-progress: 0" disabled>
+          <span data-hold-delete-label>Удерживайте, чтобы удалить выбранные</span>
+        </button>
+      </div>
+    </div>
+    <nav class="pagination resources-pagination generators-pagination" aria-label="Страницы генераторов">
+      <span>Показано {{ generators | length }} из {{ filtered_generators_count }} · страница {{ pagination.page }} / {{ pagination.total_pages }}</span>
+      <div>
+        {% if pagination.has_prev %}
+          <a href="{{ url_for('generators_page', q=search, category=selected_category, sort=sort, tag=selected_tags, exclude_tag=excluded_tags, page=pagination.prev_page, per_page=pagination.per_page) }}" data-generator-dynamic-link>← Назад</a>
+        {% else %}
+          <span class="is-disabled">← Назад</span>
+        {% endif %}
+
+        {% if pagination.has_next %}
+          <a href="{{ url_for('generators_page', q=search, category=selected_category, sort=sort, tag=selected_tags, exclude_tag=excluded_tags, page=pagination.next_page, per_page=pagination.per_page) }}" data-generator-dynamic-link>Вперёд →</a>
+        {% else %}
+          <span class="is-disabled">Вперёд →</span>
+        {% endif %}
+      </div>
+    </nav>
+  {% else %}
+    <div class="empty-state rules-empty">
+      <strong>{% if all_generators_count %}Нет генераторов по выбранным фильтрам.{% else %}Генераторов пока нет.{% endif %}</strong>
+      <span>Создайте первую таблицу и заполните все значения диапазона броска.</span>
+    </div>
+  {% endif %}
+</div>
+
+<div data-generator-edit-modal-root></div>
+
+<div class="map-modal generator-import-modal" data-generator-import-modal aria-hidden="true">
+  <div class="map-modal-backdrop" data-close-generator-import-modal></div>
+  <section class="map-modal-dialog form-modal-dialog generator-import-dialog" role="dialog" aria-modal="true" aria-label="Импорт markdown-таблицы">
+    <div class="map-modal-form form-modal-form generator-import-form">
+      <div class="map-modal-heading">
+        <div>
+          <p class="kicker">Markdown</p>
+          <h2>Импорт таблицы</h2>
+        </div>
+        <button type="button" data-close-generator-import-modal aria-label="Закрыть">×</button>
+      </div>
+      <p class="generator-import-warning">Применение таблицы перезатрёт текущие строки генератора в открытой форме. Изменения попадут в базу только после сохранения генератора.</p>
+      <label>
+        Markdown-таблица
+        <textarea rows="10" placeholder="| 1к10 | Особая цель |&#10;| :--- | :--- |&#10;| 1 | **Погибель.** ... |" data-generator-markdown-table></textarea>
+      </label>
+      <div class="upload-modal-actions">
+        <button type="button" data-close-generator-import-modal>Отмена</button>
+        <button class="audio-primary-button" type="button" data-apply-generator-markdown-import>Применить таблицу</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<template data-generator-row-template>
+  <div class="generator-edit-row" data-generator-edit-row>
+    <input type="hidden" name="row_id" value="">
+    <label class="generator-range-field"><span>Диапазон</span><input name="row_range" placeholder="1 или 2-4" required></label>
+    <label class="generator-result-field"><span>Результат</span><textarea name="row_result" rows="2" required></textarea></label>
+    <button class="audio-icon-button" type="button" data-remove-generator-row aria-label="Удалить строку" title="Удалить">×</button>
+  </div>
+</template>
+
+<div class="copy-toast" data-generator-toast role="status" aria-live="polite"></div>
+<script src="{{ url_for('static', filename='js/generators.js', v='generator-taxonomy-modal-1') }}"></script>
+{% endblock %}

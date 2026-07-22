@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block title %}Раздел не найден - {{ app_name }}{% endblock %}
+
+{% block content %}
+<section class="section-hero">
+  <a class="back-link" href="{{ url_for('index') }}">← Главная</a>
+  <p class="kicker">Провал проверки навигации</p>
+  <h1>Такого раздела пока нет.</h1>
+  <p>Вернитесь на главную и выберите один из подготовленных модулей архива.</p>
+</section>
+{% endblock %}

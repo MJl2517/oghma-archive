@@ -1,0 +1,453 @@
+{% extends "base.html" %}
+
+{% block title %}Настройки - {{ app_name }}{% endblock %}
+
+{% block content %}
+<section class="section-hero settings-hero">
+  <div>
+    <a class="back-link" href="{{ url_for('index') }}">← Главная</a>
+    <p class="kicker">Настройки приложения</p>
+    <h1>Настройки</h1>
+    <p class="hero-text">
+      Управляйте серверными настройками Архива Огмы: интеграциями, путями и служебными ссылками для внешних инструментов.
+    </p>
+  </div>
+</section>
+
+{% set notice = request.args.get("notice") %}
+<section class="settings-shell" aria-label="Настройки приложения" data-settings-page>
+  {% if notice %}
+    <div class="settings-feedback is-success" data-settings-feedback>
+      {% if notice == "settings-saved" %}
+        Настройки сохранены. Чтобы применить пути в Foundry, создайте или обновите ссылки.
+      {% elif notice == "links-synced" %}
+        Ссылки обновлены: активных {{ request.args.get("linked", "0") }}, требуют внимания {{ request.args.get("problems", "0") }}.
+      {% endif %}
+    </div>
+  {% else %}
+    <div class="settings-feedback" data-settings-feedback hidden></div>
+  {% endif %}
+
+  <div class="settings-layout">
+    <aside class="settings-nav-panel" aria-label="Разделы настроек">
+      <nav class="settings-nav-list">
+        <a href="#settings-appearance" class="is-active"><span aria-hidden="true">◐</span>Оформление</a>
+        <a href="#settings-demo"><span aria-hidden="true">▣</span>Экран игроков</a>
+        <a href="#settings-spotlight"><span aria-hidden="true">⌕</span>Spotlight</a>
+        <a href="#settings-shortcuts"><span aria-hidden="true">⌘</span>Горячие клавиши</a>
+        <a href="#settings-notifications"><span aria-hidden="true">◷</span>Уведомления</a>
+        <a href="#settings-foundry"><span aria-hidden="true">⛓</span>Foundry VTT</a>
+        <a href="#settings-long-story"><span aria-hidden="true">◇</span>Long Story Short</a>
+        <a href="#settings-paths"><span aria-hidden="true">⌂</span>Служебные пути</a>
+      </nav>
+    </aside>
+
+    <div class="settings-content">
+  <details id="settings-appearance" class="settings-category settings-category-appearance" open>
+    <summary>
+      <span>
+        <small class="kicker">Внешний вид</small>
+        <strong>Тема архива</strong>
+      </span>
+      <em>{{ theme_options.get(app_settings.appearance.theme, "Корона безумия") }}</em>
+    </summary>
+    <div class="settings-category-body">
+      <p class="settings-lead">
+        Переключает палитру, фоновые арты и атмосферные эффекты интерфейса. Начали с зимней темы “Луч Холода”.
+      </p>
+      <form class="settings-form" action="{{ url_for('update_appearance_settings') }}" method="post">
+        <div class="theme-option-grid">
+          {% for theme_id, theme_label in theme_options.items() %}
+            <label class="settings-check theme-option">
+              <input type="radio" name="appearance_theme" value="{{ theme_id }}" {% if app_settings.appearance.theme == theme_id %}checked{% endif %}>
+              <span>
+                <strong>{{ theme_label }}</strong>
+                <small>
+                  {% if theme_id == "frost-ray" %}
+                    Сине-морозная тема со снегом и зимними фонами.
+                  {% elif theme_id == "hadar-hunger" %}
+                    Чёрно-синяя тема пустоты с холодными звёздными акцентами.
+                  {% else %}
+                    Тёмная мятная тема архива.
+                  {% endif %}
+                </small>
+              </span>
+            </label>
+          {% endfor %}
+        </div>
+        <div class="settings-actions">
+          <button class="settings-primary-button" type="submit">Сохранить тему</button>
+        </div>
+      </form>
+    </div>
+  </details>
+
+  <details id="settings-foundry" class="settings-category settings-category-foundry" open>
+    <summary>
+      <span>
+        <small class="kicker">Интеграции</small>
+        <strong>Foundry VTT</strong>
+      </span>
+      <em>{{ "Включено" if app_settings.foundry.enabled else "Выключено" }}</em>
+    </summary>
+
+    <div class="settings-category-body">
+      <p class="settings-lead">
+        Огма создаёт junction-ссылки внутри Foundry Data. Foundry видит изображения как свои ассеты, но файлы не дублируются на диске.
+      </p>
+
+      <form class="settings-form" action="{{ url_for('update_foundry_settings') }}" method="post">
+        <label class="settings-check">
+          <input type="checkbox" name="foundry_enabled" {% if app_settings.foundry.enabled %}checked{% endif %}>
+          <span>Включить интеграцию с Foundry</span>
+          <span class="settings-info" tabindex="0" data-tooltip="Если выключить интеграцию, приложение продолжит работать локально, но не будет создавать и обновлять пути для Foundry VTT.">i</span>
+        </label>
+
+        <label>
+          <span>
+            Каталог Foundry Data
+            <span class="settings-info" tabindex="0" data-tooltip="Папка Data той установки Foundry VTT, в которой должны быть доступны изображения. Для локальной установки обычно находится в профиле пользователя.">i</span>
+          </span>
+          <span class="settings-path-row">
+            <input value="{{ foundry_data_display }}" placeholder="Foundry Data" readonly required data-foundry-data-dir>
+            <input type="hidden" name="foundry_data_capability" data-foundry-data-capability>
+            <button class="settings-icon-button" type="button" data-pick-folder="data_dir" aria-label="Выбрать каталог Foundry Data" title="Выбрать папку">📁</button>
+            <button class="settings-icon-button" type="button" data-open-settings-folder="foundry-data" aria-label="Открыть Foundry Data" title="Открыть папку">↗</button>
+          </span>
+        </label>
+
+        <label>
+          <span>
+            Папка ассетов внутри Foundry Data
+            <span class="settings-info" tabindex="0" data-tooltip="Относительная папка внутри Foundry Data. С неё начинаются пути, которые копируются в карточках карт и персонажей.">i</span>
+          </span>
+          <span class="settings-path-row">
+            <input name="foundry_assets_dir" value="{{ app_settings.foundry.assets_dir }}" placeholder="assets/ogma" required data-foundry-assets-dir>
+            <button class="settings-icon-button" type="button" data-pick-folder="assets_dir" aria-label="Выбрать папку ассетов" title="Выбрать папку">📁</button>
+            <button class="settings-icon-button" type="button" data-open-settings-folder="foundry-assets" aria-label="Открыть assets/ogma" title="Открыть папку">↗</button>
+          </span>
+        </label>
+
+        <div class="settings-actions">
+          <button class="settings-primary-button" type="submit">Сохранить настройки</button>
+        </div>
+      </form>
+
+      <div class="settings-actions settings-utility-actions">
+        <form class="path-open-form" action="{{ url_for('sync_foundry_links_route') }}" method="post" data-foundry-sync-form>
+          <button class="settings-secondary-button" type="submit">Создать или обновить ссылки Foundry</button>
+        </form>
+      </div>
+
+      <div class="foundry-link-list" aria-label="Статус ссылок Foundry">
+        {% for link in foundry_links %}
+          <article class="foundry-link-card is-{{ link.state }}">
+            <div>
+              <strong>{{ link.label }}</strong>
+              <span>{{ link.message }}</span>
+            </div>
+            <code>{{ link.foundry_path }}</code>
+          </article>
+        {% endfor %}
+      </div>
+    </div>
+  </details>
+
+  <details id="settings-demo" class="settings-category settings-category-demo" open>
+    <summary>
+      <span>
+        <small class="kicker">Экран игроков</small>
+        <strong>Режим демонстрации</strong>
+      </span>
+      <em>{{ "Включено" if app_settings.demo.enabled else "Выключено" }}</em>
+    </summary>
+    <div class="settings-category-body">
+      <p class="settings-lead">
+        Включает отдельное окно для показа игрокам карт, раздата, NPC и правил во время живой игры.
+      </p>
+      <form class="settings-form" action="{{ url_for('update_demo_settings') }}" method="post">
+        <label class="settings-check">
+          <input type="checkbox" name="demo_enabled" {% if app_settings.demo.enabled %}checked{% endif %}>
+          <span>Включить режим демонстрации</span>
+          <span class="settings-info" tabindex="0" data-tooltip="После включения под кнопкой настроек появится кнопка монитора, которая открывает экран для игроков.">i</span>
+        </label>
+        <div class="settings-actions">
+          <button class="settings-primary-button" type="submit">Сохранить настройки</button>
+        </div>
+      </form>
+    </div>
+  </details>
+
+  <details id="settings-notifications" class="settings-category settings-category-notifications" open>
+    <summary>
+      <span>
+        <small class="kicker">Игры</small>
+        <strong>Уведомления о сессиях</strong>
+      </span>
+      <em>{{ "Включено" if app_settings.notifications.session_reminders_enabled else "Выключено" }}</em>
+    </summary>
+    <div class="settings-category-body">
+      <p class="settings-lead">
+        Показывает спокойную плашку внутри архива, когда приближается запланированная игра. Уведомления не требуют системных разрешений браузера.
+      </p>
+      <form class="settings-form" action="{{ url_for('update_notification_settings') }}" method="post">
+        <label class="settings-check">
+          <input type="checkbox" name="session_reminders_enabled" {% if app_settings.notifications.session_reminders_enabled %}checked{% endif %}>
+          <span>Напоминать о запланированных играх</span>
+          <span class="settings-info" tabindex="0" data-tooltip="Архив проверяет сессии со статусом “В планах” и датой проведения игры.">i</span>
+        </label>
+
+        <div class="notes-filter-grid">
+          <label>
+            <span>Предупреждать за дней</span>
+            <input name="session_reminder_days" type="number" min="0" max="30" step="1" value="{{ app_settings.notifications.session_reminder_days }}" required>
+          </label>
+          <label>
+            <span>Повторять не чаще, часов</span>
+            <input name="session_reminder_interval_hours" type="number" min="1" max="168" step="1" value="{{ app_settings.notifications.session_reminder_interval_hours }}" required>
+          </label>
+        </div>
+
+        <div class="settings-actions">
+          <button class="settings-primary-button" type="submit">Сохранить уведомления</button>
+        </div>
+      </form>
+    </div>
+  </details>
+
+  {% set spotlight_selected_materials = app_settings.spotlight.materials if app_settings.spotlight is defined else [] %}
+  {% set spotlight_selected_campaigns = app_settings.spotlight.campaigns if app_settings.spotlight is defined else [] %}
+  {% set spotlight_campaign_mode = app_settings.spotlight.campaign_mode if app_settings.spotlight is defined and app_settings.spotlight.campaign_mode is defined else "all" %}
+  {% set spotlight_material_options = [
+    ("maps", "Карты"),
+    ("scenes", "Раздат"),
+    ("audio", "Аудио"),
+    ("resources", "Ссылки и ресурсы"),
+    ("rules", "Глоссарий правил"),
+    ("generators", "Генераторы"),
+    ("campaigns", "Карточки миров"),
+    ("characters", "NPC"),
+    ("party", "Группа игроков"),
+    ("notes", "Заметки"),
+    ("gods", "Боги"),
+  ] %}
+  <details id="settings-spotlight" class="settings-category settings-category-spotlight" open>
+    <summary>
+      <span>
+        <small class="kicker">Поиск</small>
+        <strong>Spotlight</strong>
+      </span>
+      <em>Фильтры</em>
+    </summary>
+    <div class="settings-category-body">
+      <p class="settings-lead">
+        Выберите, по каким материалам и мирам Spotlight выполняет быстрый поиск.
+      </p>
+
+      <form class="settings-form" action="{{ url_for('update_spotlight_settings') }}" method="post">
+        <label>
+          <span>Материалы для поиска</span>
+        </label>
+        <div class="settings-check-grid">
+          {% for value, label in spotlight_material_options %}
+            <label class="settings-check">
+              <input type="checkbox" name="spotlight_materials" value="{{ value }}" {% if value in spotlight_selected_materials %}checked{% endif %}>
+              <span>{{ label }}</span>
+            </label>
+          {% endfor %}
+        </div>
+
+        <label>
+          <span>Миры (кампейны)</span>
+        </label>
+        <div class="settings-check-grid">
+          <label class="settings-check">
+            <input type="radio" name="spotlight_campaign_mode" value="all" {% if spotlight_campaign_mode == "all" %}checked{% endif %}>
+            <span>Все миры</span>
+          </label>
+          <label class="settings-check">
+            <input type="radio" name="spotlight_campaign_mode" value="selected" {% if spotlight_campaign_mode == "selected" %}checked{% endif %}>
+            <span>Только выбранные миры</span>
+          </label>
+        </div>
+        <div class="settings-check-grid">
+          {% if campaigns %}
+            {% for campaign_item in campaigns %}
+              <label class="settings-check">
+                <input type="checkbox" name="spotlight_campaigns" value="{{ campaign_item.slug }}" {% if campaign_item.slug in spotlight_selected_campaigns %}checked{% endif %}>
+                <span>{{ campaign_item.name }}</span>
+              </label>
+            {% endfor %}
+          {% else %}
+            <p class="settings-lead">Пока нет кампейнов. Spotlight будет искать по общим материалам.</p>
+          {% endif %}
+        </div>
+
+        <div class="settings-actions">
+          <button class="settings-primary-button" type="submit">Сохранить настройки</button>
+        </div>
+      </form>
+    </div>
+  </details>
+
+  <details id="settings-shortcuts" class="settings-category settings-category-shortcuts" open>
+    <summary>
+      <span>
+        <small class="kicker">Управление</small>
+        <strong>Горячие клавиши</strong>
+      </span>
+      <em>Просмотр</em>
+    </summary>
+    <div class="settings-category-body">
+      <p class="settings-lead">
+        Справочник активных сочетаний клавиш. Сейчас они только отображаются здесь: переназначение будет отдельной настройкой, когда оно понадобится.
+      </p>
+
+      <div class="settings-shortcut-grid" aria-label="Горячие клавиши приложения">
+        <article class="settings-shortcut-card">
+          <div>
+            <small class="kicker">Поиск</small>
+            <strong>Spotlight</strong>
+          </div>
+          <dl class="settings-shortcut-list">
+            <div>
+              <dt><kbd>Shift</kbd><span>+</span><kbd>?</kbd></dt>
+              <dd>Открыть быстрый поиск</dd>
+            </div>
+          </dl>
+        </article>
+
+        <article class="settings-shortcut-card">
+          <div>
+            <small class="kicker">Текст</small>
+            <strong>Markdown</strong>
+          </div>
+          <dl class="settings-shortcut-list">
+            <div>
+              <dt><kbd>Ctrl</kbd><span>+</span><kbd>B</kbd></dt>
+              <dd>Жирный текст</dd>
+            </div>
+            <div>
+              <dt><kbd>Ctrl</kbd><span>+</span><kbd>I</kbd></dt>
+              <dd>Курсив</dd>
+            </div>
+            <div>
+              <dt><kbd>Ctrl</kbd><span>+</span><kbd>U</kbd></dt>
+              <dd>Подчёркивание</dd>
+            </div>
+            <div>
+              <dt><kbd>Ctrl</kbd><span>+</span><kbd>K</kbd></dt>
+              <dd>Ссылка</dd>
+            </div>
+            <div>
+              <dt><kbd>Ctrl</kbd><span>+</span><kbd>`</kbd></dt>
+              <dd>Код или термин</dd>
+            </div>
+            <div>
+              <dt><kbd>Ctrl</kbd><span>+</span><kbd>Alt</kbd><span>+</span><kbd>H</kbd></dt>
+              <dd>Заголовок</dd>
+            </div>
+            <div>
+              <dt><kbd>Ctrl</kbd><span>+</span><kbd>Alt</kbd><span>+</span><kbd>L</kbd></dt>
+              <dd>Список</dd>
+            </div>
+            <div>
+              <dt><kbd>Ctrl</kbd><span>+</span><kbd>Alt</kbd><span>+</span><kbd>Q</kbd></dt>
+              <dd>Цитата</dd>
+            </div>
+          </dl>
+        </article>
+
+        <article class="settings-shortcut-card">
+          <div>
+            <small class="kicker">Будущее</small>
+            <strong>Персонажи игроков</strong>
+          </div>
+          <dl class="settings-shortcut-list">
+            <div>
+              <dt><kbd>Alt</kbd><span>+</span><kbd>G</kbd></dt>
+              <dd>Открыть раздел персонажей игроков</dd>
+            </div>
+          </dl>
+        </article>
+      </div>
+    </div>
+  </details>
+
+  <details id="settings-paths" class="settings-category settings-category-paths" open>
+    <summary>
+      <span>
+        <small class="kicker">Система</small>
+        <strong>Служебные пути</strong>
+      </span>
+      <em>Справка</em>
+    </summary>
+    <div class="settings-category-body">
+      <p class="settings-lead">
+        Эти пути помогают быстро понять, где живут данные. Они открываются через кнопки на главной и в разделах архива.
+      </p>
+      <div class="foundry-link-list">
+        <article class="foundry-link-card is-linked">
+          <div>
+            <strong>Общий архив</strong>
+            <span>Правила, карты, генераторы и ресурсы для всех кампейнов.</span>
+          </div>
+          <code>data/shared</code>
+        </article>
+        <article class="foundry-link-card is-linked">
+          <div>
+            <strong>Кампейны</strong>
+            <span>Личные NPC, группа, записи и материалы конкретных миров.</span>
+          </div>
+          <code>data/campaigns</code>
+        </article>
+        <article class="foundry-link-card is-linked">
+          <div>
+            <strong>Раздат</strong>
+            <span>Глобальные арты, handouts, подсказки и изображения для показа игрокам без привязки к кампейну.</span>
+          </div>
+          <code>data/shared/scenes</code>
+        </article>
+      </div>
+    </div>
+  </details>
+
+  <details id="settings-long-story" class="settings-category settings-category-long-story" open>
+    <summary>
+      <span>
+        <small class="kicker">Интеграции</small>
+        <strong>Long Story Short</strong>
+      </span>
+      <em>Запланировано</em>
+    </summary>
+    <div class="settings-category-body">
+      <p class="settings-lead">
+        Заготовка для будущей интеграции с Long Story Short. Она пригодится для раздела персонажей игроков в кампаниях.
+      </p>
+      <div class="foundry-link-list">
+        <article class="foundry-link-card is-missing">
+          <div>
+            <strong>Сервис</strong>
+            <span>Справка и описание возможностей Long Story Short.</span>
+          </div>
+          <code>https://longstoryshort.app/about/</code>
+        </article>
+        <article class="foundry-link-card is-missing">
+          <div>
+            <strong>Персонажи</strong>
+            <span>Будущая точка входа для списка персонажей игроков.</span>
+          </div>
+          <code>https://longstoryshort.app/characters/list/</code>
+        </article>
+      </div>
+    </div>
+  </details>
+    </div>
+  </div>
+</section>
+<div class="settings-toast" data-settings-toast hidden></div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{{ url_for('static', filename='js/settings.js', v='settings-no-motion-1') }}"></script>
+{% endblock %}
