@@ -7,6 +7,7 @@ from logging.handlers import RotatingFileHandler
 import os
 import socket
 import subprocess
+import sys
 import threading
 import time
 import urllib.error
@@ -14,15 +15,20 @@ import urllib.request
 import webbrowser
 from pathlib import Path
 
+SOURCE_ROOT = Path(__file__).resolve().parent.parent
+if str(SOURCE_ROOT) not in sys.path:
+    sys.path.insert(0, str(SOURCE_ROOT))
+
 from PIL import Image
 import pystray
 
+from ogma.runtime_paths import bundle_root, default_data_dir
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = bundle_root(SOURCE_ROOT)
 PYTHON_EXE = PROJECT_ROOT / ".venv" / "Scripts" / "python.exe"
 APP_FILE = PROJECT_ROOT / "app.py"
 ICON_FILE = PROJECT_ROOT / "static" / "img" / "ogma-icon.png"
-DATA_DIR = Path(os.getenv("OGMA_DATA_DIR", PROJECT_ROOT / "data")).resolve()
+DATA_DIR = default_data_dir(SOURCE_ROOT)
 LOG_DIR = DATA_DIR / "logs"
 LOG_FILE = LOG_DIR / "launcher.log"
 SERVER_LOG_FILE = LOG_DIR / "server-console.log"
@@ -82,7 +88,18 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Stop the running tray instance and its owned production server.",
     )
+    parser.add_argument(
+        "--server",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
     return parser.parse_args()
+
+
+def server_command() -> list[str]:
+    if getattr(sys, "frozen", False):
+        return [sys.executable, "--server"]
+    return [str(PYTHON_EXE), str(APP_FILE)]
 
 
 def probe_server(timeout: float = 0.75) -> bool:
@@ -184,7 +201,7 @@ def supervise_server(open_when_ready: bool) -> None:
     with SERVER_LOG_FILE.open("a", encoding="utf-8", buffering=1) as server_log:
         server_log.write("\n=== OGHMA PROD START ===\n")
         server_process = subprocess.Popen(
-            [str(PYTHON_EXE), str(APP_FILE)],
+            server_command(),
             cwd=str(PROJECT_ROOT),
             stdout=server_log,
             stderr=server_log,
@@ -289,6 +306,18 @@ def main() -> int:
     global icon_instance, ipc_server_socket
 
     args = parse_args()
+    if args.server:
+        os.environ.update(
+            {
+                "OGMA_DEV": "0",
+                "OGMA_HOST": BIND_HOST,
+                "OGMA_PORT": str(APP_PORT),
+                "PYTHONUNBUFFERED": "1",
+            }
+        )
+        from app import run_application
+
+        return run_application()
     if args.stop:
         return 0 if send_to_existing_instance(b"STOP") else 1
     open_when_ready = args.open and not args.startup
@@ -296,10 +325,10 @@ def main() -> int:
     if send_to_existing_instance(command):
         return 0
 
-    if not PYTHON_EXE.is_file():
+    if not getattr(sys, "frozen", False) and not PYTHON_EXE.is_file():
         LOGGER.error("Virtual environment Python not found: %s", PYTHON_EXE)
         return 1
-    if not APP_FILE.is_file():
+    if not getattr(sys, "frozen", False) and not APP_FILE.is_file():
         LOGGER.error("Application entry point not found: %s", APP_FILE)
         return 1
 

@@ -43,6 +43,7 @@ from ogma.safe_paths import (
 from ogma.safe_urls import EntityReference
 from ogma.server_instance import ServerAlreadyRunningError, ServerInstanceLock
 from ogma.settings_store import SettingsStore, THEME_OPTIONS
+from ogma.runtime_paths import bundle_root, default_data_dir
 from ogma import spotlight as spotlight_service
 from ogma.services import favorites as favorite_service
 from ogma.services import generators as generator_service
@@ -54,8 +55,9 @@ from ogma.tags import replace_item_field_value, sort_tags_alphabetically, visibl
 from routes import register_domain_routes
 
 APP_NAME = "Архив Огмы"
-BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = Path(os.getenv("OGMA_DATA_DIR", BASE_DIR / "data")).resolve()
+SOURCE_DIR = Path(__file__).resolve().parent
+BASE_DIR = bundle_root(SOURCE_DIR)
+DATA_DIR = default_data_dir(SOURCE_DIR)
 SHARED_DATA_DIR = DATA_DIR / "shared"
 CAMPAIGNS_DIR = DATA_DIR / "campaigns"
 CLIPBOARD_CACHE_DIR = DATA_DIR / ".cache" / "clipboard"
@@ -3548,7 +3550,7 @@ ensure_storage()
 register_domain_routes(app, globals())
 
 
-if __name__ == "__main__":
+def run_application() -> int:
     requested_host = os.environ.get("OGMA_HOST", "127.0.0.1").strip() or "127.0.0.1"
     if requested_host != "127.0.0.1":
         raise RuntimeError("Oghma may only bind to 127.0.0.1.")
@@ -3595,4 +3597,9 @@ if __name__ == "__main__":
                     run_production_server()
     except ServerAlreadyRunningError as exc:
         print(f"[OGMA] {exc}", file=sys.stderr, flush=True)
-        raise SystemExit(2) from None
+        return 2
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(run_application())
