@@ -10,11 +10,11 @@
   {% if active_page_art_url %}
     <link rel="preload" as="image" href="{{ active_page_art_url }}" fetchpriority="high">
   {% endif %}
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css', v='rule-taxonomy-theme-2') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/icons.css', v='2') }}">
-  <script src="{{ url_for('static', filename='js/icons.js', v='1') }}" defer></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css', v=asset_version) }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/icons.css', v=asset_version) }}">
+  <script src="{{ url_for('static', filename='js/icons.js', v=asset_version) }}" defer></script>
   <script src="{{ url_for('static', filename='js/security.js', v='1') }}" defer></script>
-  <script src="{{ url_for('static', filename='js/jobs.js', v='1') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/jobs.js', v=asset_version) }}" defer></script>
 </head>
 <body class="{{ body_classes }}">
   <div class="page-shell">

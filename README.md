@@ -71,10 +71,21 @@ Waitress остаётся привязан к внутреннему loopback-п
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements-build.txt
-.\scripts\build-windows-installer.ps1 -Version 1.0.0
+.\scripts\build-windows-installer.ps1 -Version 1.1.0
 ```
 
 Готовый файл и его SHA-256 появятся в `dist-installer`. Каталоги `build` и `dist-installer` являются локальными артефактами и не добавляются в Git.
+
+## Обновления
+
+Установленная Windows-версия может обновляться через раздел «Настройки → Обновления»:
+
+1. Oghma запрашивает последний опубликованный GitHub Release репозитория `MJl2517/oghma-archive`.
+2. Загружает только installer с ожидаемым именем и соответствующий `.sha256`.
+3. Сверяет контрольную сумму файла и digest релиза GitHub.
+4. Останавливает приложение и открывает обычный wizard обновления.
+
+Во всех версиях используется один постоянный `AppId` установщика, поэтому wizard обновляет существующую установку. Каталог `%LOCALAPPDATA%\Oghma Archive\data` не входит в устанавливаемые файлы и остаётся неизменным.
 
 ## Хранилище данных
 

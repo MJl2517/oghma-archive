@@ -32,7 +32,11 @@ a = Analysis(
     [str(project_root / "scripts" / "ogma_tray.py")],
     pathex=[str(project_root)],
     binaries=[],
-    datas=[(str(project_root / "templates"), "templates"), *static_datas],
+    datas=[
+        (str(project_root / "templates"), "templates"),
+        (str(project_root / "installer" / "launch-update.ps1"), "installer"),
+        *static_datas,
+    ],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

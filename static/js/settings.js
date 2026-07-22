@@ -9,6 +9,7 @@ const foundryEnabledInput = document.querySelector("input[name='foundry_enabled'
 const settingsSections = [...document.querySelectorAll(".settings-category[id]")];
 const settingsNavLinks = [...document.querySelectorAll(".settings-nav-list a[href^='#']")];
 const settingsLayout = document.querySelector(".settings-layout");
+const updatePanel = document.querySelector("[data-update-panel]");
 
 settingsSections.forEach((section) => {
   section.open = true;
@@ -187,3 +188,97 @@ if (settingsPage && foundrySyncForm) {
     }
   }, 5 * 60 * 1000);
 }
+
+function formatUpdateSize(bytes) {
+  const value = Number(bytes || 0);
+  if (!Number.isFinite(value) || value <= 0) return "";
+  return `${(value / 1024 / 1024).toFixed(1).replace(".", ",")} МБ`;
+}
+
+function renderUpdateStatus(payload = {}) {
+  if (!updatePanel) return;
+  const current = payload.current_version || updatePanel.dataset.currentVersion || "—";
+  const latest = payload.latest_version || "—";
+  const available = payload.available === true;
+  const downloaded = payload.downloaded === true;
+  const packaged = payload.packaged === true || updatePanel.dataset.packaged === "true";
+  const currentNode = updatePanel.querySelector("[data-update-current]");
+  const latestNode = updatePanel.querySelector("[data-update-latest]");
+  const titleNode = updatePanel.querySelector("[data-update-title]");
+  const messageNode = updatePanel.querySelector("[data-update-message]");
+  const summaryNode = document.querySelector("[data-update-summary]");
+  const downloadButton = updatePanel.querySelector("[data-update-download]");
+  const installButton = updatePanel.querySelector("[data-update-install]");
+  const releaseLink = updatePanel.querySelector("[data-update-release]");
+
+  if (currentNode) currentNode.textContent = current;
+  if (latestNode) latestNode.textContent = latest;
+  if (summaryNode) summaryNode.textContent = available ? `Доступна ${latest}` : `v${current}`;
+  if (titleNode) {
+    titleNode.textContent = available
+      ? `Доступна Oghma ${latest}`
+      : `Установлена актуальная Oghma ${current}`;
+  }
+  if (messageNode) {
+    if (downloaded && available) {
+      messageNode.textContent = packaged
+        ? "Обновление загружено и проверено. Можно открыть мастер установки."
+        : "Обновление загружено и проверено. Установщик сохранён в служебной папке.";
+    } else if (available) {
+      const size = formatUpdateSize(payload.installer_size);
+      messageNode.textContent = `Релиз готов к загрузке${size ? ` · ${size}` : ""}. Ваши данные останутся на месте.`;
+    } else {
+      messageNode.textContent = "Новых опубликованных версий нет.";
+    }
+  }
+  if (downloadButton) downloadButton.hidden = !available || downloaded;
+  if (installButton) installButton.hidden = !available || !downloaded || !packaged;
+  if (releaseLink) {
+    const releaseUrl = String(payload.release_url || "");
+    releaseLink.hidden = !releaseUrl;
+    if (releaseUrl) releaseLink.href = releaseUrl;
+  }
+}
+
+async function runUpdateAction(kind) {
+  if (!updatePanel) return;
+  const url = updatePanel.dataset[`${kind}Url`];
+  if (!url) return;
+  const buttons = [...updatePanel.querySelectorAll("button")];
+  buttons.forEach((button) => { button.disabled = true; });
+  const messages = {
+    check: "Проверяю GitHub Releases...",
+    download: "Загружаю установщик и проверяю SHA-256...",
+    install: "Подготавливаю мастер обновления...",
+  };
+  showSettingsFeedback(messages[kind] || "Выполняю операцию...");
+  try {
+    const payload = await window.startLocalJob(url, {
+      method: "POST",
+      body: new FormData(),
+      headers: { "Accept": "application/json", "X-Requested-With": "fetch" },
+    });
+    if (kind === "install") {
+      showSettingsFeedback(payload.message || "Oghma закрывается. Сейчас откроется мастер обновления.");
+      return;
+    }
+    renderUpdateStatus(payload);
+    showSettingsFeedback(
+      payload.available
+        ? (payload.downloaded ? "Обновление загружено и проверено." : `Доступна Oghma ${payload.latest_version}.`)
+        : "Установлена актуальная версия Oghma.",
+    );
+  } catch (error) {
+    showSettingsFeedback(error.message, "error");
+  } finally {
+    if (kind !== "install") buttons.forEach((button) => { button.disabled = false; });
+  }
+}
+
+updatePanel?.querySelector("[data-update-check]")?.addEventListener("click", () => runUpdateAction("check"));
+updatePanel?.querySelector("[data-update-download]")?.addEventListener("click", () => runUpdateAction("download"));
+updatePanel?.querySelector("[data-update-install]")?.addEventListener("click", () => {
+  if (window.confirm("Oghma будет закрыта, затем откроется мастер обновления. Продолжить?")) {
+    runUpdateAction("install");
+  }
+});

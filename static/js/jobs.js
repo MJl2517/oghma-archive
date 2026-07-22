@@ -9,7 +9,7 @@
   }
 
   async function waitForLocalJob(statusUrl) {
-    const deadline = Date.now() + 5 * 60 * 1000;
+    const deadline = Date.now() + 30 * 60 * 1000;
     while (Date.now() < deadline) {
       const payload = await parseResponse(await fetch(statusUrl, {
         headers: { "Accept": "application/json", "X-Requested-With": "fetch" },

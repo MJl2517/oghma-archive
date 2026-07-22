@@ -44,6 +44,8 @@ from ogma.safe_urls import EntityReference
 from ogma.server_instance import ServerAlreadyRunningError, ServerInstanceLock
 from ogma.settings_store import SettingsStore, THEME_OPTIONS
 from ogma.runtime_paths import bundle_root, default_data_dir
+from ogma.updater import UpdateManager
+from ogma.version import APP_VERSION
 from ogma import spotlight as spotlight_service
 from ogma.services import favorites as favorite_service
 from ogma.services import generators as generator_service
@@ -492,6 +494,7 @@ settings_store = SettingsStore(
     DEFAULT_FOUNDRY_ASSETS_DIR,
     SPOTLIGHT_MATERIAL_OPTIONS,
 )
+update_manager = UpdateManager(DATA_DIR, BASE_DIR, APP_VERSION)
 app = OgmaFlask(__name__)
 configure_local_security(app, DATA_DIR, LOCAL_SERVER_PORT)
 
@@ -575,6 +578,22 @@ def start_local_job(kind: str, operation) -> str:
 
 def local_job_status(job_id: str) -> dict:
     return local_jobs.status(job_id)
+
+
+def update_status() -> dict:
+    return update_manager.local_status()
+
+
+def check_for_updates() -> dict:
+    return update_manager.check_latest(force=True)
+
+
+def download_update() -> dict:
+    return update_manager.download_latest()
+
+
+def install_update() -> dict:
+    return update_manager.launch_prepared_installer()
 
 
 def foundry_settings() -> dict:
@@ -3514,6 +3533,7 @@ def inject_globals() -> dict:
 
     return {
         "app_name": APP_NAME,
+        "asset_version": APP_VERSION,
         "has_ogma_logo": (BASE_DIR / "static" / "img" / "ogma-logo.png").exists(),
         "sections": SECTIONS,
         "global_sections": GLOBAL_SECTIONS,

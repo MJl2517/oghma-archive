@@ -23,6 +23,8 @@
     ["◷", "clock"],
     ["◇", "diamond"],
     ["⌂", "home"],
+    ["↓", "download"],
+    ["↻", "refresh-cw"],
   ]);
 
   const inlineHostSelector = [

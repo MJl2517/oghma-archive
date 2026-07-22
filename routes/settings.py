@@ -8,6 +8,16 @@ def _is_fetch() -> bool:
 
 
 def register_setting_routes(bp, views: dict) -> None:
+    def start_job(kind: str, operation):
+        job_id = views["start_local_job"](kind, operation)
+        return jsonify(
+            {
+                "ok": True,
+                "job_id": job_id,
+                "status_url": url_for("local_job_status", job_id=job_id),
+            }
+        ), 202
+
     def open_folder_route():
         form = request.form.copy()
         job_id = views["start_local_job"](
@@ -24,6 +34,24 @@ def register_setting_routes(bp, views: dict) -> None:
 
     def settings_page():
         return render_template("settings.html", **setting_service.settings_page_context(views))
+
+    def check_for_updates_route():
+        return start_job(
+            "update_check",
+            lambda: setting_service.check_for_updates(views),
+        )
+
+    def download_update_route():
+        return start_job(
+            "update_download",
+            lambda: setting_service.download_update(views),
+        )
+
+    def install_update_route():
+        return start_job(
+            "update_install",
+            lambda: setting_service.install_update(views),
+        )
 
     def update_foundry_settings():
         setting_service.update_foundry_settings(views, request.form)
@@ -89,6 +117,9 @@ def register_setting_routes(bp, views: dict) -> None:
     routes = [
         ("POST", "/folders/open", "open_folder_route", open_folder_route),
         ("GET", "/settings", "settings_page", settings_page),
+        ("POST", "/settings/updates/check", "check_for_updates_route", check_for_updates_route),
+        ("POST", "/settings/updates/download", "download_update_route", download_update_route),
+        ("POST", "/settings/updates/install", "install_update_route", install_update_route),
         ("POST", "/settings/foundry", "update_foundry_settings", update_foundry_settings),
         ("POST", "/settings/spotlight", "update_spotlight_settings", update_spotlight_settings),
         ("POST", "/settings/demo", "update_demo_settings", update_demo_settings),

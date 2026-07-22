@@ -16,6 +16,7 @@ class InstallerContractTests(unittest.TestCase):
         self.assertIn("PrivilegesRequired=admin", script)
         self.assertIn("[InstallDelete]", script)
         self.assertIn("cleanup-legacy-launchers.ps1", script)
+        self.assertIn("launch-update.ps1", script)
 
     def test_installer_configures_and_removes_only_managed_domain_entry(self):
         script = (ROOT / "installer" / "configure-local-network.ps1").read_text(
@@ -33,7 +34,17 @@ class InstallerContractTests(unittest.TestCase):
         self.assertIn("static_datas", spec)
         self.assertIn('"img/themes/**/*.jpg"', spec)
         self.assertIn('project_root / "build" / "version-info.txt"', spec)
+        self.assertIn('project_root / "installer" / "launch-update.ps1"', spec)
         self.assertIn('name="Oghma"', spec)
+
+    def test_settings_page_exposes_update_workflow(self):
+        template = (ROOT / "templates" / "settings.html").read_text(encoding="utf-8")
+        script = (ROOT / "static" / "js" / "settings.js").read_text(encoding="utf-8")
+        self.assertIn('id="settings-updates"', template)
+        self.assertIn("data-update-check", template)
+        self.assertIn("data-update-download", template)
+        self.assertIn("data-update-install", template)
+        self.assertIn("runUpdateAction", script)
 
 
 if __name__ == "__main__":

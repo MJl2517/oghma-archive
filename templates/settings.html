@@ -36,6 +36,7 @@
         <a href="#settings-spotlight"><span aria-hidden="true">⌕</span>Spotlight</a>
         <a href="#settings-shortcuts"><span aria-hidden="true">⌘</span>Горячие клавиши</a>
         <a href="#settings-notifications"><span aria-hidden="true">◷</span>Уведомления</a>
+        <a href="#settings-updates"><span aria-hidden="true">↓</span>Обновления</a>
         <a href="#settings-foundry"><span aria-hidden="true">⛓</span>Foundry VTT</a>
         <a href="#settings-long-story"><span aria-hidden="true">◇</span>Long Story Short</a>
         <a href="#settings-paths"><span aria-hidden="true">⌂</span>Служебные пути</a>
@@ -79,6 +80,60 @@
           <button class="settings-primary-button" type="submit">Сохранить тему</button>
         </div>
       </form>
+    </div>
+  </details>
+
+  <details id="settings-updates" class="settings-category settings-category-updates" open>
+    <summary>
+      <span>
+        <small class="kicker">Система</small>
+        <strong>Обновления Oghma</strong>
+      </span>
+      <em data-update-summary>v{{ app_update.current_version }}</em>
+    </summary>
+    <div
+      class="settings-category-body"
+      data-update-panel
+      data-check-url="{{ url_for('check_for_updates_route') }}"
+      data-download-url="{{ url_for('download_update_route') }}"
+      data-install-url="{{ url_for('install_update_route') }}"
+      data-current-version="{{ app_update.current_version }}"
+      data-packaged="{{ 'true' if app_update.packaged else 'false' }}"
+    >
+      <p class="settings-lead">
+        Oghma проверяет только опубликованные релизы официального репозитория. Установщик загружается в служебную папку и запускается только после проверки SHA-256.
+      </p>
+      <article class="update-status-card" data-update-card>
+        <div>
+          <small class="kicker">Установленная версия</small>
+          <strong data-update-title>Oghma {{ app_update.current_version }}</strong>
+          <span data-update-message>
+            Нажмите «Проверить обновления», чтобы запросить последний релиз GitHub.
+          </span>
+        </div>
+        <dl class="update-version-list">
+          <div><dt>Текущая</dt><dd data-update-current>{{ app_update.current_version }}</dd></div>
+          <div><dt>Последняя</dt><dd data-update-latest>—</dd></div>
+        </dl>
+      </article>
+      <div class="settings-actions update-actions">
+        <button class="settings-secondary-button" type="button" data-update-check>
+          <span aria-hidden="true">↻</span>Проверить обновления
+        </button>
+        <button class="settings-primary-button" type="button" data-update-download hidden>
+          <span aria-hidden="true">↓</span>Скачать обновление
+        </button>
+        <button class="settings-primary-button" type="button" data-update-install {% if not app_update.downloaded or not app_update.packaged %}hidden{% endif %}>
+          Установить через мастер
+        </button>
+        <a class="settings-secondary-button" href="#" target="_blank" rel="noopener noreferrer" data-update-release hidden>Страница релиза</a>
+      </div>
+      <p class="settings-lead update-storage-note">
+        Пользовательские материалы находятся в <code>%LOCALAPPDATA%\Oghma Archive\data</code> и не заменяются файлами установщика.
+        {% if not app_update.packaged %}
+          Запуск мастера из приложения доступен только в установленной Windows-версии; версия для разработки может проверить и скачать релиз.
+        {% endif %}
+      </p>
     </div>
   </details>
 
@@ -449,5 +504,5 @@
 {% endblock %}
 
 {% block scripts %}
-  <script src="{{ url_for('static', filename='js/settings.js', v='settings-no-motion-1') }}"></script>
+  <script src="{{ url_for('static', filename='js/settings.js', v=asset_version) }}"></script>
 {% endblock %}

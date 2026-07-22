@@ -1,6 +1,6 @@
 param(
     [ValidatePattern("^\d+\.\d+\.\d+$")]
-    [string]$Version = "1.0.0"
+    [string]$Version = "1.1.0"
 )
 
 $ErrorActionPreference = "Stop"
@@ -19,6 +19,11 @@ if (-not [Environment]::Is64BitOperatingSystem) {
 }
 if (-not (Test-Path -LiteralPath $pythonPath -PathType Leaf)) {
     throw "Build Python was not found at $pythonPath"
+}
+
+$sourceVersion = (& $pythonPath -c "from ogma.version import APP_VERSION; print(APP_VERSION)").Trim()
+if ($LASTEXITCODE -ne 0 -or $sourceVersion -ne $Version) {
+    throw "Requested build version $Version does not match ogma.version APP_VERSION $sourceVersion."
 }
 
 & $pythonPath -c "import PyInstaller" 2>$null

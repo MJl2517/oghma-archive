@@ -31,7 +31,20 @@ def settings_page_context(deps: dict) -> dict:
         "app_settings": current_settings,
         "foundry_data_display": Path(current_settings["foundry"]["data_dir"]).name or "Foundry Data",
         "foundry_links": deps["foundry_link_statuses"](current_settings),
+        "app_update": deps["update_status"](),
     }
+
+
+def check_for_updates(deps: dict) -> dict:
+    return deps["check_for_updates"]()
+
+
+def download_update(deps: dict) -> dict:
+    return deps["download_update"]()
+
+
+def install_update(deps: dict) -> dict:
+    return deps["install_update"]()
 
 
 def update_foundry_settings(deps: dict, form) -> None:

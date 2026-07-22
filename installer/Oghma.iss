@@ -1,6 +1,6 @@
 #define AppName "Oghma Archive"
 #ifndef AppVersion
-#define AppVersion "1.0.0"
+#define AppVersion "1.1.0"
 #endif
 #define AppPublisher "MJl2517"
 #define AppURL "https://github.com/MJl2517/oghma-archive"
@@ -61,6 +61,7 @@ Name: "autostart"; Description: "{cm:Autostart}"; GroupDescription: "{cm:Additio
 Source: "..\build\package\Oghma\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "configure-local-network.ps1"; DestDir: "{app}\installer"; Flags: ignoreversion
 Source: "cleanup-legacy-launchers.ps1"; DestDir: "{app}\installer"; Flags: ignoreversion
+Source: "launch-update.ps1"; DestDir: "{app}\installer"; Flags: ignoreversion
 
 [InstallDelete]
 Type: files; Name: "{commonstartup}\Oghma Archive.lnk"
