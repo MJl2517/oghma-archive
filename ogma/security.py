@@ -83,11 +83,13 @@ def configure_local_security(app: Flask, data_dir: Path, expected_port: int) -> 
             origin = request.headers.get("Origin", "").strip()
             referer = request.headers.get("Referer", "").strip()
             if origin:
-                opaque_same_site = (
-                    origin.casefold() == "null"
-                    and fetch_site in {"same-origin", "same-site"}
-                )
-                if not opaque_same_site and not is_trusted_local_source(
+                # Some desktop browser containers intentionally serialize the
+                # origin as the opaque value `null` and omit Fetch Metadata.
+                # The canonical Host boundary and mandatory CSRF token still
+                # authenticate these requests; an explicit cross-site signal
+                # is rejected above before this exception is considered.
+                opaque_origin = origin.casefold() == "null"
+                if not opaque_origin and not is_trusted_local_source(
                     origin,
                     request.host_url,
                     allowed_ports,

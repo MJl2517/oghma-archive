@@ -126,9 +126,9 @@ class SecurityBoundaryTests(unittest.TestCase):
         self.assertEqual("invalid_origin", response.get_json()["error"]["code"])
         self.assertEqual(0, self.mutations)
 
-    def test_opaque_origin_requires_same_site_metadata_and_valid_csrf(self) -> None:
+    def test_opaque_origin_requires_valid_csrf_even_without_fetch_metadata(self) -> None:
         token = self.token()
-        allowed = self.client.post(
+        allowed_with_metadata = self.client.post(
             "/mutate",
             headers={
                 "Host": self.host,
@@ -137,10 +137,10 @@ class SecurityBoundaryTests(unittest.TestCase):
                 "X-CSRF-Token": token,
             },
         )
-        self.assertEqual(200, allowed.status_code)
+        self.assertEqual(200, allowed_with_metadata.status_code)
         self.assertEqual(1, self.mutations)
 
-        missing_metadata = self.client.post(
+        allowed_without_metadata = self.client.post(
             "/mutate",
             headers={
                 "Host": self.host,
@@ -148,11 +148,8 @@ class SecurityBoundaryTests(unittest.TestCase):
                 "X-CSRF-Token": token,
             },
         )
-        self.assertEqual(403, missing_metadata.status_code)
-        self.assertEqual(
-            "invalid_origin",
-            missing_metadata.get_json()["error"]["code"],
-        )
+        self.assertEqual(200, allowed_without_metadata.status_code)
+        self.assertEqual(2, self.mutations)
 
         invalid_csrf = self.client.post(
             "/mutate",
@@ -165,7 +162,23 @@ class SecurityBoundaryTests(unittest.TestCase):
         )
         self.assertEqual(403, invalid_csrf.status_code)
         self.assertEqual("invalid_csrf", invalid_csrf.get_json()["error"]["code"])
-        self.assertEqual(1, self.mutations)
+        self.assertEqual(2, self.mutations)
+
+        explicit_cross_site = self.client.post(
+            "/mutate",
+            headers={
+                "Host": self.host,
+                "Origin": "null",
+                "Sec-Fetch-Site": "cross-site",
+                "X-CSRF-Token": token,
+            },
+        )
+        self.assertEqual(403, explicit_cross_site.status_code)
+        self.assertEqual(
+            "cross_site_request",
+            explicit_cross_site.get_json()["error"]["code"],
+        )
+        self.assertEqual(2, self.mutations)
 
     def test_security_headers_are_applied(self) -> None:
         response = self.client.get("/", headers={"Host": self.host})
