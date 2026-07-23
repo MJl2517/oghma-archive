@@ -24,8 +24,21 @@
     throw new Error("Local operation timed out.");
   }
 
+  function withCsrfToken(url, options) {
+    const requestOptions = { ...options };
+    const method = String(requestOptions.method || "GET").toUpperCase();
+    const target = new URL(url, window.location.href);
+    const token = document.querySelector('meta[name="csrf-token"]')?.content || "";
+    if (target.origin === window.location.origin && ["POST", "PUT", "PATCH", "DELETE"].includes(method) && token) {
+      const headers = new Headers(requestOptions.headers);
+      headers.set("X-CSRF-Token", token);
+      requestOptions.headers = headers;
+    }
+    return requestOptions;
+  }
+
   window.startLocalJob = async function startLocalJob(url, options = {}) {
-    const payload = await parseResponse(await fetch(url, options));
+    const payload = await parseResponse(await fetch(url, withCsrfToken(url, options)));
     if (!payload.job_id || !payload.status_url) {
       throw new Error("Local operation did not start.");
     }
@@ -39,8 +52,11 @@
     const buttons = [...form.querySelectorAll("button")];
     buttons.forEach((button) => { button.disabled = true; });
     try {
+      const submitUrl = event.submitter?.hasAttribute("formaction")
+        ? event.submitter.formAction
+        : form.action;
       const result = await window.startLocalJob(
-        event.submitter?.formAction || form.action,
+        submitUrl,
         {
           method: "POST",
           body: new FormData(form),
@@ -49,6 +65,8 @@
       );
       if (result.ok === false) throw new Error("Local operation failed.");
     } catch {
+      // The caller keeps the current page in place when a native operation fails.
+    } finally {
       buttons.forEach((button) => { button.disabled = false; });
     }
   });

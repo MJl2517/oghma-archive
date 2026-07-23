@@ -789,7 +789,7 @@ document.addEventListener("change", (event) => {
   const importInput = event.target.closest("[data-god-import-input]");
   if (importInput) {
     const form = importInput.closest("[data-god-import-form]");
-    if (form && importInput.files?.length) form.submit();
+    if (form && importInput.files?.length) form.requestSubmit();
     return;
   }
 

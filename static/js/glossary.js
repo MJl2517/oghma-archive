@@ -1999,7 +1999,7 @@ document.addEventListener("change", (event) => {
   const importInput = event.target.closest("[data-rule-import-input]");
   if (importInput) {
     const form = importInput.closest("[data-rule-import-form]");
-    if (form && importInput.files?.length) form.submit();
+    if (form && importInput.files?.length) form.requestSubmit();
   }
 });
 

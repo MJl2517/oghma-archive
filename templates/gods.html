@@ -104,6 +104,7 @@
   <div class="gods-hero-actions">
     <a class="map-hero-action" href="{{ url_for('export_gods', campaign=campaign.slug) }}">Экспорт JSON</a>
     <form class="god-import-form" action="{{ url_for('import_gods') }}" method="post" enctype="multipart/form-data" data-god-import-form>
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="campaign_slug" value="{{ campaign.slug }}">
       <label class="map-hero-action" tabindex="0">
         Импорт JSON
@@ -515,5 +516,5 @@
     </section>
   </div>
 
-  <script src="{{ url_for('static', filename='js/gods.js', v='pantheon-catalog-replace-1') }}"></script>
+  <script src="{{ url_for('static', filename='js/gods.js', v='god-import-csrf-2') }}"></script>
 {% endblock %}

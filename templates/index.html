@@ -101,7 +101,8 @@
       <p class="kicker">Кампейны</p>
       <h2 id="campaigns-title">Выберите кампейн или создайте новый</h2>
     </div>
-    <form class="path-open-form path-open-form-compact" action="{{ url_for('open_folder_route') }}" method="post">
+    <form class="path-open-form path-open-form-compact" action="{{ url_for('open_folder_route') }}" method="post" data-local-job-form>
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="folder" value="campaigns">
       <button class="storage-pill path-open-button" type="submit">data/campaigns</button>
     </form>
@@ -155,7 +156,8 @@
 <section class="storage-panel home-storage-panel" aria-label="Структура хранения">
   <div>
     <p class="kicker">Общее хранилище</p>
-    <form class="storage-open-form" action="{{ url_for('open_folder_route') }}" method="post">
+    <form class="storage-open-form" action="{{ url_for('open_folder_route') }}" method="post" data-local-job-form>
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="folder" value="shared">
       <button type="submit">data/shared</button>
     </form>
@@ -163,7 +165,8 @@
   </div>
   <div>
     <p class="kicker">Хранилище кампейнов</p>
-    <form class="storage-open-form" action="{{ url_for('open_folder_route') }}" method="post">
+    <form class="storage-open-form" action="{{ url_for('open_folder_route') }}" method="post" data-local-job-form>
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="folder" value="campaigns">
       <button type="submit">data/campaigns</button>
     </form>

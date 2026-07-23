@@ -73,7 +73,7 @@ Waitress остаётся привязан к внутреннему loopback-п
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements-build.txt
-.\scripts\build-windows-installer.ps1 -Version 1.1.2
+.\scripts\build-windows-installer.ps1 -Version 1.1.3
 ```
 
 Готовый файл и его SHA-256 появятся в `dist-installer`. Каталоги `build` и `dist-installer` являются локальными артефактами и не добавляются в Git.

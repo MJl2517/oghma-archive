@@ -127,6 +127,7 @@
   </form>
 
   <form class="upload-dropzone" action="{{ url_for('upload_characters') }}" method="post" enctype="multipart/form-data" data-character-dropzone>
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="campaign_slug" value="{{ campaign.slug }}">
     <input type="hidden" name="batch_tags" value="{{ required_tags[0] }}" data-batch-tags-input>
     {% for tag in selected_tags %}
@@ -466,5 +467,5 @@
 {% endblock %}
 
 {% block scripts %}
-  <script src="{{ url_for('static', filename='js/characters.js', v='character-tag-rename-1') }}"></script>
+  <script src="{{ url_for('static', filename='js/characters.js', v='character-upload-csrf-2') }}"></script>
 {% endblock %}

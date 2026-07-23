@@ -1230,7 +1230,7 @@ document.addEventListener("click", async (event) => {
       characterSingleTitleInput.value = characterSingleTitleWrap?.hidden ? "" : (characterSingleTitle?.value || "").trim();
     }
     closeCharacterUploadModal({ resetFiles: false });
-    characterUploadForm.submit();
+    characterUploadForm.requestSubmit();
   }
 });
 

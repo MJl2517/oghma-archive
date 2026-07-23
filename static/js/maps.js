@@ -1043,7 +1043,7 @@ document.addEventListener("click", async (event) => {
       singleTitleInput.value = uploadSingleTitleWrap?.hidden ? "" : (uploadSingleTitle?.value || "").trim();
     }
     closeUploadModal({ resetFiles: false });
-    uploadForm.submit();
+    uploadForm.requestSubmit();
   }
 });
 

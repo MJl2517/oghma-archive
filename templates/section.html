@@ -23,7 +23,8 @@
     {% else %}
       <div class="path-copy path-copy-title">
         <strong>Общий архив:</strong>
-        <form class="path-open-form path-open-form-inline" action="{{ url_for('open_folder_route') }}" method="post">
+        <form class="path-open-form path-open-form-inline" action="{{ url_for('open_folder_route') }}" method="post" data-local-job-form>
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
           <input type="hidden" name="folder" value="shared:{{ section.slug }}">
           <button class="inline-path-button" type="submit">data/shared/{{ section.slug }}</button>
         </form>

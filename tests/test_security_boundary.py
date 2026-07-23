@@ -188,6 +188,36 @@ class SecurityBoundaryTests(unittest.TestCase):
         self.assertIn("object-src 'none'", response.headers["Content-Security-Policy"])
         self.assertEqual("no-store", response.headers["Cache-Control"])
 
+    def test_programmatic_uploads_dispatch_submit_event_for_csrf(self) -> None:
+        project_root = Path(__file__).resolve().parents[1]
+        assets_and_templates = (
+            ("static/js/characters.js", "templates/characters.html"),
+            ("static/js/maps.js", "templates/maps.html"),
+            ("static/js/gods.js", "templates/gods.html"),
+            ("static/js/glossary.js", "templates/glossary.html"),
+        )
+        for asset_path, template_path in assets_and_templates:
+            with self.subTest(asset=asset_path):
+                source = (project_root / asset_path).read_text(encoding="utf-8")
+                self.assertIn(".requestSubmit()", source)
+                template = (project_root / template_path).read_text(encoding="utf-8")
+                self.assertIn('name="_csrf_token" value="{{ csrf_token() }}"', template)
+
+    def test_local_jobs_attach_csrf_without_global_fetch_wrapper(self) -> None:
+        project_root = Path(__file__).resolve().parents[1]
+        source = (project_root / "static/js/jobs.js").read_text(encoding="utf-8")
+        self.assertIn('headers.set("X-CSRF-Token", token)', source)
+        self.assertIn('event.submitter?.hasAttribute("formaction")', source)
+        self.assertNotIn("event.submitter?.formAction || form.action", source)
+
+        for relative_path in ("templates/index.html", "templates/section.html"):
+            with self.subTest(template=relative_path):
+                template = (project_root / relative_path).read_text(encoding="utf-8")
+                self.assertNotIn(
+                    'action="{{ url_for(\'open_folder_route\') }}" method="post">',
+                    template,
+                )
+
     def test_deep_json_is_rejected_without_side_effect(self) -> None:
         token = self.token()
         payload = {}

@@ -35,6 +35,7 @@
   </div>
 
   <form class="upload-dropzone" action="{{ url_for(upload_endpoint) }}" method="post" enctype="multipart/form-data" data-dropzone>
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="scope" value="{{ scope }}">
     <input type="hidden" name="campaign_slug" value="{{ campaign_slug }}">
     <input type="hidden" name="batch_tags" value="" data-batch-tags-input>
@@ -99,5 +100,5 @@
 {% endblock %}
 
 {% block scripts %}
-  <script src="{{ url_for('static', filename='js/maps.js', v='upload-tag-active-1') }}"></script>
+  <script src="{{ url_for('static', filename='js/maps.js', v='media-upload-csrf-2') }}"></script>
 {% endblock %}

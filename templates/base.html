@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/icons.css', v=asset_version) }}">
   <script src="{{ url_for('static', filename='js/icons.js', v=asset_version) }}" defer></script>
   <script src="{{ url_for('static', filename='js/security.js', v=asset_version) }}" defer></script>
-  <script src="{{ url_for('static', filename='js/jobs.js', v=asset_version) }}" defer></script>
+  <script src="{{ url_for('static', filename='js/jobs.js', v=asset_version ~ '-csrf-jobs-3') }}" defer></script>
 </head>
 <body class="{{ body_classes }}">
   <div class="page-shell">

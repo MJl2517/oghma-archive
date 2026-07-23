@@ -59,6 +59,7 @@
     <div class="rules-tool-actions">
       <a class="map-hero-action" href="{{ url_for('export_rules') }}">Экспорт JSON</a>
       <form class="rule-import-form" action="{{ url_for('import_rules') }}" method="post" enctype="multipart/form-data" data-rule-import-form>
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
         <label class="map-hero-action" tabindex="0">
           Импорт JSON
           <input type="file" name="rules_file" accept="application/json,.json" data-rule-import-input hidden>
@@ -524,5 +525,5 @@
     </section>
   </div>
   <div class="copy-toast" data-rule-toast role="status" aria-live="polite"></div>
-  <script src="{{ url_for('static', filename='js/glossary.js', v='github-catalog-replace-1') }}"></script>
+  <script src="{{ url_for('static', filename='js/glossary.js', v='glossary-import-csrf-2') }}"></script>
 {% endblock %}
