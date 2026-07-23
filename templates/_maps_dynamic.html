@@ -219,7 +219,7 @@
         <div class="map-modal-backdrop" data-close-map-modal></div>
         <section class="map-modal-dialog" role="dialog" aria-modal="true" aria-label="Настройки: {{ map.title }}">
           <div class="map-modal-preview">
-            <img src="{{ map.url }}" alt="{{ map.title }}" loading="lazy" decoding="async">
+            <img src="{{ map.thumbnail_url }}" data-thumbnail-src="{{ map.thumbnail_url }}" data-full-src="{{ map.url }}" alt="{{ map.title }}" decoding="async">
           </div>
           <form class="map-modal-form" action="{{ url_for(update_endpoint, map_id=map.id) }}" method="post" data-map-settings-form>
             <input type="hidden" name="scope" value="{{ scope }}">

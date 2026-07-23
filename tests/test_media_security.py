@@ -12,6 +12,8 @@ from ogma.errors import PayloadTooLargeError, UnsupportedMediaError
 from ogma.media import (
     ALLOWED_AUDIO_EXTENSIONS,
     ALLOWED_IMAGE_EXTENSIONS,
+    MAX_MAP_IMAGE_UPLOAD_BYTES,
+    ensure_thumbnail,
     save_uploaded_media_file,
 )
 
@@ -88,6 +90,61 @@ class MediaSecurityTests(unittest.TestCase):
                         "image",
                     )
             self.assertEqual([], list(target.iterdir()))
+
+    def test_map_upload_preserves_original_and_uses_cached_thumbnail(self) -> None:
+        self.assertGreaterEqual(MAX_MAP_IMAGE_UPLOAD_BYTES, 61 * 1024 * 1024)
+        source = io.BytesIO()
+        Image.new("RGB", (1600, 900), "navy").save(source, format="PNG")
+        original_bytes = source.getvalue()
+        source.seek(0)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            target = Path(temp_dir) / "maps"
+            cache = Path(temp_dir) / "thumbnails"
+            upload = FileStorage(stream=source, filename="battle-map.png")
+            result = save_uploaded_media_file(
+                upload,
+                target,
+                ALLOWED_IMAGE_EXTENSIONS,
+                "map",
+                preserve_image_original=True,
+                max_upload_bytes=len(original_bytes) + 1,
+            )
+
+            self.assertEqual(".png", Path(result["filename"]).suffix)
+            self.assertEqual(original_bytes, result["path"].read_bytes())
+
+            thumbnail = ensure_thumbnail(result["path"], cache, max_side=720)
+            self.assertIsNotNone(thumbnail)
+            self.assertNotEqual(result["path"], thumbnail)
+            with Image.open(thumbnail) as image:
+                self.assertLessEqual(max(image.size), 720)
+
+    def test_preserved_map_upload_still_enforces_its_explicit_limit(self) -> None:
+        source = io.BytesIO()
+        Image.new("RGB", (8, 8), "red").save(source, format="PNG")
+        source.seek(0)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            target = Path(temp_dir)
+            upload = FileStorage(stream=source, filename="large-map.png")
+            with self.assertRaises(PayloadTooLargeError):
+                save_uploaded_media_file(
+                    upload,
+                    target,
+                    ALLOWED_IMAGE_EXTENSIONS,
+                    "map",
+                    preserve_image_original=True,
+                    max_upload_bytes=4,
+                )
+            self.assertEqual([], list(target.iterdir()))
+
+    def test_map_grid_uses_thumbnail_and_defers_full_image_to_modal_open(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        template = (root / "templates" / "_maps_dynamic.html").read_text(encoding="utf-8")
+        script = (root / "static" / "js" / "maps.js").read_text(encoding="utf-8")
+        self.assertIn('<img src="{{ map.thumbnail_url }}"', template)
+        self.assertIn('data-full-src="{{ map.url }}"', template)
+        self.assertIn('preview.src = preview.dataset.fullSrc', script)
+        self.assertIn('preview.src = preview.dataset.thumbnailSrc', script)
 
 
 if __name__ == "__main__":

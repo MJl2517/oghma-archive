@@ -1,6 +1,6 @@
 #define AppName "Oghma Archive"
 #ifndef AppVersion
-#define AppVersion "1.1.3"
+#define AppVersion "1.1.4"
 #endif
 #define AppPublisher "MJl2517"
 #define AppURL "https://github.com/MJl2517/oghma-archive"

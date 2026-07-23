@@ -664,6 +664,10 @@ async function closeMapModals({ save = true, refresh = true } = {}) {
   document.querySelectorAll("[data-map-modal]").forEach((modal) => {
     modal.classList.remove("is-open");
     modal.setAttribute("aria-hidden", "true");
+    const preview = modal.querySelector(".map-modal-preview img[data-thumbnail-src]");
+    if (preview && preview.getAttribute("src") !== preview.dataset.thumbnailSrc) {
+      preview.src = preview.dataset.thumbnailSrc;
+    }
   });
   syncMapBodyModalState();
   if (openForms.length) {
@@ -677,6 +681,10 @@ async function openMapModal(mapId) {
   const modal = document.querySelector(`[data-map-modal="${mapId}"]`);
   if (!modal) return;
 
+  const preview = modal.querySelector(".map-modal-preview img[data-full-src]");
+  if (preview?.dataset.fullSrc && preview.getAttribute("src") !== preview.dataset.fullSrc) {
+    preview.src = preview.dataset.fullSrc;
+  }
   modal.classList.add("is-open");
   modal.setAttribute("aria-hidden", "false");
   document.body.classList.add("has-modal");

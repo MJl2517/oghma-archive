@@ -33,6 +33,7 @@ MAX_CLIPBOARD_IMAGE_SIDE = 2200
 DEFAULT_THUMBNAIL_MAX_SIDE = 720
 UPLOADED_IMAGE_WEBP_QUALITY = 82
 MAX_IMAGE_UPLOAD_BYTES = 25 * 1024 * 1024
+MAX_MAP_IMAGE_UPLOAD_BYTES = 128 * 1024 * 1024
 MAX_AUDIO_UPLOAD_BYTES = 200 * 1024 * 1024
 MAX_IMAGE_SIDE = 8192
 MAX_IMAGE_PIXELS = 40_000_000
@@ -101,6 +102,9 @@ def save_uploaded_media_file(
     allowed_extensions: set[str],
     fallback_stem: str,
     suffix_length: int = 8,
+    *,
+    preserve_image_original: bool = False,
+    max_upload_bytes: int | None = None,
 ) -> dict | None:
     if not uploaded_file or not uploaded_file.filename:
         return None
@@ -110,16 +114,22 @@ def save_uploaded_media_file(
         raise UnsupportedMediaError("Uploaded file extension is not allowed.")
 
     target_dir.mkdir(parents=True, exist_ok=True)
-    convert_to_webp = should_convert_upload_to_webp(allowed_extensions)
+    is_image = allowed_extensions.issubset(ALLOWED_IMAGE_EXTENSIONS)
+    convert_to_webp = should_convert_upload_to_webp(allowed_extensions) and not preserve_image_original
     filename = unique_media_filename(original, fallback_stem, suffix_length=suffix_length, extension=".webp" if convert_to_webp else None)
     target_path = target_dir / filename
     staged_path: Path | None = None
     try:
-        limit = MAX_IMAGE_UPLOAD_BYTES if allowed_extensions.issubset(ALLOWED_IMAGE_EXTENSIONS) else MAX_AUDIO_UPLOAD_BYTES
+        default_limit = MAX_IMAGE_UPLOAD_BYTES if is_image else MAX_AUDIO_UPLOAD_BYTES
+        limit = max_upload_bytes if max_upload_bytes is not None else default_limit
         staged_path, upload_size = _stage_upload(uploaded_file, target_dir, limit)
         _ensure_free_space(target_dir, upload_size)
         if convert_to_webp:
             save_image_as_webp(staged_path, target_path)
+        elif is_image:
+            _validate_image_file(staged_path)
+            os.replace(staged_path, target_path)
+            staged_path = None
         else:
             _validate_audio_magic(staged_path, media_extension(original))
             os.replace(staged_path, target_path)
@@ -191,6 +201,21 @@ def _validate_image_dimensions(image) -> None:
         or width * height > MAX_IMAGE_PIXELS
     ):
         raise UnsupportedMediaError("Image dimensions exceed safe limits.")
+
+
+def _validate_image_file(path: Path) -> None:
+    if Image is None:
+        raise StorageUnavailableError("Image processing support is unavailable.")
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            with Image.open(path) as image:
+                _validate_image_dimensions(image)
+                image.verify()
+    except (Image.DecompressionBombError, Image.DecompressionBombWarning) as exc:
+        raise UnsupportedMediaError("Image exceeds safe decompression limits.") from exc
+    except (OSError, ValueError, SyntaxError) as exc:
+        raise UnsupportedMediaError("Image cannot be safely decoded.") from exc
 
 
 def _validate_audio_magic(path: Path, extension: str) -> None:

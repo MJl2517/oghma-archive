@@ -33,7 +33,13 @@ from ogma.markdown import render_note_content as render_note_content_markup
 from ogma.markdown import render_rule_content as render_rule_content_markup
 from ogma.markdown import render_text_content as render_text_content_markup
 from ogma import media_catalog
-from ogma.media import ALLOWED_AUDIO_EXTENSIONS, ALLOWED_IMAGE_EXTENSIONS, DEFAULT_THUMBNAIL_MAX_SIDE, MAX_CLIPBOARD_IMAGE_SIDE
+from ogma.media import (
+    ALLOWED_AUDIO_EXTENSIONS,
+    ALLOWED_IMAGE_EXTENSIONS,
+    DEFAULT_THUMBNAIL_MAX_SIDE,
+    MAX_CLIPBOARD_IMAGE_SIDE,
+    MAX_MAP_IMAGE_UPLOAD_BYTES,
+)
 from ogma.media import copy_image_to_windows_clipboard as copy_image_to_windows_clipboard_service
 from ogma.media import ensure_thumbnail, save_image_as_webp, save_uploaded_media_file
 from ogma.security import configure_local_security
@@ -2675,7 +2681,14 @@ def save_uploaded_maps(files, scope: str, campaign_slug: str = "", batch_tags=No
     use_single_title = len(valid_files) == 1 and bool(clean_single_title)
 
     for uploaded_file in files:
-        saved_file = save_uploaded_media_file(uploaded_file, target_dir, ALLOWED_IMAGE_EXTENSIONS, "map")
+        saved_file = save_uploaded_media_file(
+            uploaded_file,
+            target_dir,
+            ALLOWED_IMAGE_EXTENSIONS,
+            "map",
+            preserve_image_original=True,
+            max_upload_bytes=MAX_MAP_IMAGE_UPLOAD_BYTES,
+        )
         if saved_file is None:
             continue
         maps.append(
